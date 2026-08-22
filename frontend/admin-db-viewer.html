@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>DB Viewer - Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .db-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .table-list {
+    width: 180px;
+    flex-shrink: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .table-list-header {
+    padding: 12px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .table-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .table-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .table-item.active {
+    background: rgba(100,130,255,0.12);
+    color: var(--accent);
+    font-weight: 600;
+    border-left: 3px solid var(--accent);
+  }
+  .table-icon { font-size: 14px; }
+
+  .db-main { flex: 1; min-width: 0; }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .toolbar input {
+    flex: 1;
+    min-width: 160px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .toolbar input:focus { outline: none; border-color: var(--accent); }
+
+  .count-badge {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .export-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .export-btn:hover { background: rgba(255,255,255,0.08); }
+
+  .db-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .db-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .db-table th {
+    background: rgba(255,255,255,0.04);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  .db-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .db-table tr:last-child td { border-bottom: none; }
+  .db-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+  .null-val { color: var(--muted); font-style: italic; font-size: 11px; }
+  .num-val  { color: #7dd3fc; font-family: monospace; }
+  .id-val   { color: var(--accent); font-weight: 600; font-family: monospace; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .s-active   { background: rgba(0,200,120,0.12); color: var(--success); }
+  .s-inactive { background: rgba(255,255,255,0.06); color: var(--muted); }
+  .s-pending  { background: rgba(255,160,50,0.12); color: var(--warning); }
+  .s-approved { background: rgba(0,200,120,0.12); color: var(--success); }
+  .s-rejected { background: rgba(255,80,80,0.12); color: #ff6060; }
+  .s-blocked  { background: rgba(255,80,80,0.12); color: #ff6060; }
+
+  .pagination {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .page-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .page-btn.active { background: rgba(100,130,255,0.15); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .page-btn:disabled { opacity: 0.35; cursor: default; }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .empty-state .big { font-size: 36px; margin-bottom: 10px; }
+
+  .col-tip {
+    position: fixed;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text);
+    max-width: 300px;
+    word-break: break-all;
+    z-index: 999;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  @media (max-width: 700px) {
+    .db-layout { flex-direction: column; }
+    .table-list { width: 100%; display: flex; flex-wrap: wrap; gap: 0; }
+    .table-item { flex: 1; min-width: 100px; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <div class="page-header">
+      <h1>⛁ DB Viewer</h1>
+      <p>Browse all database tables live, or run a raw SQL query below.</p>
+    </div>
+
+    <div class="panel" style="margin-bottom:20px">
+      <h3>SQL Query</h3>
+      <p style="font-size:13px;color:var(--muted);margin-top:-6px">
+        SELECT and UPDATE only. One statement per run — no semicolons, comments, DROP/DELETE/INSERT/ALTER/CREATE/PRAGMA. UPDATE runs immediately with no undo, so double-check the WHERE clause before running.
+      </p>
+      <textarea id="sqlInput" rows="4" placeholder="SELECT * FROM users WHERE status = 'active' LIMIT 20;" style="width:100%;font-family:monospace;font-size:13px;background:rgba(255,255,255,0.03);color:var(--text);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;resize:vertical"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <button class="btn-primary" onclick="runSql()">Run Query</button>
+        <span id="sqlMsg" class="msg" style="margin:0"></span>
+      </div>
+      <div id="sqlResultWrap" class="db-table-wrap" style="display:none;margin-top:14px">
+        <table class="db-table">
+          <thead id="sqlResultHead"></thead>
+          <tbody id="sqlResultBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="db-layout">
+      <!-- Table List -->
+      <div class="table-list" id="tableList">
+        <div class="table-list-header">Tables</div>
+        <div style="padding:14px;color:var(--muted);font-size:12px">Loading...</div>
+      </div>
+
+      <!-- Main content -->
+      <div class="db-main">
+        <div id="noSelection" class="empty-state">
+          <div class="big">⛁</div>
+          <div>Select a table from the left to view its records</div>
+        </div>
+
+        <div id="viewerArea" style="display:none">
+          <div class="toolbar">
+            <input type="text" id="searchInput" placeholder="🔍 Search any column..." oninput="onSearch()" />
+            <span class="count-badge" id="countBadge"></span>
+            <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+          </div>
+
+          <div class="db-table-wrap">
+            <table class="db-table">
+              <thead id="tableHead"></thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Full value tooltip -->
+<div class="col-tip" id="colTip"></div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('db-viewer', 'admin');
+
+const TABLE_ICONS = {
+  users: '👤', deposits: '💰', withdrawals: '💸',
+  income_log: '📊', level_unlocks: '◉', level_unlock_deposits: '🔓',
+  support_tickets: '🎫', support_messages: '💬', settings: '⚙️'
+};
+
+let currentTable = null;
+let currentPage  = 1;
+let searchTimer  = null;
+let lastData     = null;
+
+// ---- Load table list ----
+async function loadTables() {
+  try {
+    const tables = await apiRequest('/admin/db/tables');
+    const list = document.getElementById('tableList');
+    list.innerHTML = '<div class="table-list-header">Tables</div>' +
+      tables.map(t => `
+        <div class="table-item" id="ti-${t}" onclick="selectTable('${t}')">
+          <span class="table-icon">${TABLE_ICONS[t] || '📋'}</span>
+          ${t}
+        </div>`).join('');
+  } catch (e) {
+    document.getElementById('tableList').innerHTML = `<div style="padding:12px;color:var(--warning);font-size:12px">${e.message}</div>`;
+  }
+}
+
+function selectTable(name) {
+  currentTable = name;
+  currentPage  = 1;
+  document.getElementById('searchInput').value = '';
+  document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`ti-${name}`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+  document.getElementById('noSelection').style.display = 'none';
+  document.getElementById('viewerArea').style.display  = '';
+  loadData();
+}
+
+async function loadData() {
+  if (!currentTable) return;
+  const search = document.getElementById('searchInput').value.trim();
+  document.getElementById('tableBody').innerHTML =
+    '<tr><td colspan="99" style="color:var(--muted);text-align:center;padding:24px">Loading...</td></tr>';
+  try {
+    const data = await apiRequest(
+      `/admin/db/query?table=${currentTable}&page=${currentPage}&search=${encodeURIComponent(search)}`
+    );
+    lastData = data;
+    renderTable(data);
+    renderPagination(data);
+    document.getElementById('countBadge').textContent =
+      `${data.total.toLocaleString()} row${data.total !== 1 ? 's' : ''}`;
+  } catch (e) {
+    document.getElementById('tableBody').innerHTML =
+      `<tr><td colspan="99" style="color:var(--warning);text-align:center;padding:24px">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+function renderTable(data) {
+  // Header
+  document.getElementById('tableHead').innerHTML =
+    '<tr>' + data.cols.map(c => `<th>${escapeHtml(c)}</th>`).join('') + '</tr>';
+
+  // Body
+  if (!data.rows.length) {
+    document.getElementById('tableBody').innerHTML =
+      `<tr><td colspan="${data.cols.length}" style="text-align:center;padding:32px;color:var(--muted)">No records found</td></tr>`;
+    return;
+  }
+
+  document.getElementById('tableBody').innerHTML = data.rows.map(row =>
+    '<tr>' + data.cols.map(col => {
+      const val = row[col];
+      return `<td title="${escapeHtml(String(val ?? ''))}" onclick="showTip(event, this)">${formatCell(col, val)}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function formatCell(col, val) {
+  if (val === null || val === undefined) return '<span class="null-val">null</span>';
+
+  const s = String(val);
+
+  // Status pills
+  if (col === 'status') {
+    const cls = { active:'s-active', inactive:'s-inactive', pending:'s-pending',
+                  approved:'s-approved', rejected:'s-rejected', blocked:'s-blocked' }[s] || '';
+    return cls ? `<span class="status-pill ${cls}">${escapeHtml(s)}</span>` : escapeHtml(s);
+  }
+
+  // ID column — accent color
+  if (col === 'id') return `<span class="id-val">#${escapeHtml(s)}</span>`;
+
+  // Numbers
+  if (typeof val === 'number') return `<span class="num-val">${val.toLocaleString()}</span>`;
+
+  // Passwords — mask
+  if (col === 'password' || col === 'password_hash') return '<span class="null-val">••••••••</span>';
+
+  // Long text — truncate
+  if (s.length > 60) return `<span title="${escapeHtml(s)}">${escapeHtml(s.substring(0, 58))}…</span>`;
+
+  return escapeHtml(s);
+}
+
+function renderPagination(data) {
+  const totalPages = Math.ceil(data.total / data.limit);
+  if (totalPages <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+
+  let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>← Prev</button>`;
+
+  // Show limited page buttons
+  const start = Math.max(1, currentPage - 2);
+  const end   = Math.min(totalPages, currentPage + 2);
+  for (let i = start; i <= end; i++) {
+    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+  }
+
+  html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>`;
+  html += `<span class="count-badge">Page ${currentPage} of ${totalPages}</span>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p) {
+  currentPage = p;
+  loadData();
+}
+
+function onSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { currentPage = 1; loadData(); }, 400);
+}
+
+// ---- Full value tooltip ----
+const tip = document.getElementById('colTip');
+function showTip(e, td) {
+  const full = td.getAttribute('title');
+  if (!full || full.length < 30) { tip.style.display = 'none'; return; }
+  tip.textContent = full;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 12, window.innerWidth - 320) + 'px';
+  tip.style.top  = (e.clientY + 16) + 'px';
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('td')) tip.style.display = 'none';
+});
+
+// ---- Raw SQL runner ----
+async function runSql() {
+  const sql = document.getElementById('sqlInput').value.trim();
+  const msg = document.getElementById('sqlMsg');
+  const wrap = document.getElementById('sqlResultWrap');
+  msg.textContent = ''; msg.className = 'msg';
+
+  if (!sql) { msg.textContent = 'Enter a query first'; msg.className = 'msg error'; return; }
+  const isUpdate = /^update\b/i.test(sql);
+  if (isUpdate && !confirm('This UPDATE will modify data immediately and cannot be undone. Run it?')) return;
+
+  try {
+    const res = await apiRequest('/admin/db/sql', 'POST', { sql });
+    if (res.type === 'select') {
+      msg.textContent = `${res.count} row(s) returned`; msg.className = 'msg success';
+      if (!res.cols.length) { wrap.style.display = 'none'; return; }
+      document.getElementById('sqlResultHead').innerHTML =
+        '<tr>' + res.cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+      document.getElementById('sqlResultBody').innerHTML = res.rows.map(row =>
+        '<tr>' + res.cols.map(c => `<td>${row[c] === null ? '<i style="color:var(--muted)">null</i>' : String(row[c])}</td>`).join('') + '</tr>'
+      ).join('');
+      wrap.style.display = 'block';
+    } else {
+      msg.textContent = `${res.changes} row(s) updated`; msg.className = 'msg success';
+      wrap.style.display = 'none';
+      toast(`${res.changes} row(s) updated`, 'success');
+      if (currentTable) loadData();
+    }
+  } catch (err) {
+    msg.textContent = err.message; msg.className = 'msg error';
+    wrap.style.display = 'none';
+  }
+}
+
+// ---- CSV Export ----
+function exportCSV() {
+  if (!lastData || !lastData.rows.length) return;
+  const header = lastData.cols.join(',');
+  const rows   = lastData.rows.map(row =>
+    lastData.cols.map(c => {
+      const v = row[c];
+      if (v === null || v === undefined) return '';
+      const s = String(v).replace(/"/g, '""');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
+    }).join(',')
+  );
+  const csv  = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${currentTable}_page${currentPage}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+loadTables();
+</script>
+</body>
+</html>

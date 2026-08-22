@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Home - Bee AI Verse</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1 id="welcome">Welcome back</h1>
+      <p>Here's how your business is performing today.</p>
+    </div>
+
+    <div class="cards" id="statsCards"></div>
+
+    <div class="quick-actions">
+      <a class="action-card" href="deposit.html">
+        <span class="ic">⬆</span>
+        <div class="t">New Deposit</div>
+        <div class="d">Add funds to your wallet</div>
+      </a>
+      <a class="action-card" href="withdraw.html">
+        <span class="ic">⬇</span>
+        <div class="t">Withdraw</div>
+        <div class="d">Request a payout</div>
+      </a>
+      <a class="action-card" href="direct-team.html">
+        <span class="ic">⬡</span>
+        <div class="t">Direct Team</div>
+        <div class="d">View who you sponsored</div>
+      </a>
+      <a class="action-card" href="genealogy.html">
+        <span class="ic">◈</span>
+        <div class="t">Genealogy</div>
+        <div class="d">See your binary tree</div>
+      </a>
+    </div>
+
+    <div class="panel" id="capPanel" style="display:none">
+      <h3>Earning Cap <span id="capBadge" style="display:none;font-size:11px;font-weight:700;color:var(--warning);background:rgba(255,181,71,0.15);padding:3px 9px;border-radius:20px;margin-left:8px;vertical-align:middle">CAPPED</span></h3>
+      <p style="font-size:13px;color:var(--muted);margin-top:-6px">
+        Level income and profit credits to your Main Wallet are capped at 2x your net-invested capital. Deposit again to raise your limit.
+      </p>
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;height:22px;overflow:hidden;margin-top:12px;position:relative">
+        <div id="capBar" style="height:100%;border-radius:10px;background:linear-gradient(90deg,#4fd1c5,#38b2ac);width:0%;transition:width .4s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-dim);margin-top:8px">
+        <span id="capUsedLabel">Earned: 0.00 USDT</span>
+        <span id="capCeilingLabel">Limit: 0.00 USDT</span>
+      </div>
+      <p id="capRemainingText" style="font-size:13px;color:var(--text);margin-top:10px"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Business Snapshot</h3>
+      <p style="color:var(--text-dim);font-size:14px;line-height:1.7">
+        Your account was created on <strong id="joinDate" style="color:#fff"></strong>.
+        Your Bee AI Verse ID is <strong id="myUserCode" style="color:var(--ice)"></strong> —
+        share it (or your referral links below) with anyone joining under you.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>Referral Links</h3>
+      <p style="color:var(--text-dim);font-size:13.5px;margin-top:-6px">
+        Send the Left link to place someone on your left leg, and the Right link for your right leg.
+      </p>
+      <div class="grid-2" style="margin-top:14px">
+        <div>
+          <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Left Leg Referral Link</label>
+          <div class="copy-row">
+            <input type="text" id="leftLink" readonly />
+            <button class="btn-small btn-primary" onclick="copyLink('leftLink')">Copy</button>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Right Leg Referral Link</label>
+          <div class="copy-row">
+            <input type="text" id="rightLink" readonly />
+            <button class="btn-small btn-primary" onclick="copyLink('rightLink')">Copy</button>
+          </div>
+        </div>
+      </div>
+      <div id="copyMsg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('dashboard', 'user');
+
+const user = getUser();
+document.getElementById('welcome').textContent = `Welcome back, ${user.name ? user.name.split(' ')[0] : 'Member'}`;
+
+async function loadDashboard() {
+  try {
+    const data = await apiRequest('/user/dashboard');
+    const s = data.stats;
+    const u = data.user;
+
+    // Sync localStorage session with fresh user state from backend
+    const currentUser = getUser();
+    if (currentUser) {
+      localStorage.setItem('user', JSON.stringify({ ...currentUser, ...u }));
+    }
+    
+    document.getElementById('joinDate').textContent = new Date(u.created_at).toLocaleDateString();
+    document.getElementById('myUserCode').textContent = u.user_code;
+    
+    const mainWallet = parseFloat(u.main_wallet || 0);
+    const refWallet = parseFloat(u.referral_wallet || 0);
+    const totalWallet = mainWallet + refWallet;
+
+    document.getElementById('statsCards').innerHTML = `
+      <div class="stat-card"><div class="label">Main Wallet</div><div class="value">${usdt(mainWallet)}</div></div>
+      <div class="stat-card"><div class="label">Referral Wallet</div><div class="value">${usdt(refWallet)}</div></div>
+      <div class="stat-card"><div class="label">Total Wallet Balance</div><div class="value">${usdt(totalWallet)}</div></div>
+      <div class="stat-card"><div class="label">Direct Referrals</div><div class="value">${s.directReferrals}</div></div>
+      <div class="stat-card"><div class="label">Left Team</div><div class="value">${s.leftCount}</div></div>
+      <div class="stat-card"><div class="label">Right Team</div><div class="value">${s.rightCount}</div></div>
+      <div class="stat-card"><div class="label">Total Deposits</div><div class="value">${usdt(s.totalDeposits)}</div></div>
+      <div class="stat-card"><div class="label">Total Withdrawals</div><div class="value">${usdt(s.totalWithdrawals)}</div></div>
+    `;
+
+    renderCap(data.cap);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function renderCap(cap) {
+  const panel = document.getElementById('capPanel');
+  if (!cap || cap.ceiling <= 0) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const pct = Math.min(100, Math.round((cap.used / cap.ceiling) * 100));
+  const bar = document.getElementById('capBar');
+  bar.style.width = pct + '%';
+  bar.style.background = cap.isCapped
+    ? 'linear-gradient(90deg,#ff8a65,#ff5252)'
+    : 'linear-gradient(90deg,#4fd1c5,#38b2ac)';
+
+  document.getElementById('capUsedLabel').textContent = `Earned: ${usdt(cap.used)}`;
+  document.getElementById('capCeilingLabel').textContent = `Limit: ${usdt(cap.ceiling)}`;
+  document.getElementById('capBadge').style.display = cap.isCapped ? 'inline-block' : 'none';
+
+  const remainingEl = document.getElementById('capRemainingText');
+  if (cap.isCapped) {
+    remainingEl.textContent = `You've reached your earning limit for your current deposit. Make a new deposit to raise your cap and keep earning.`;
+    remainingEl.style.color = 'var(--warning)';
+  } else {
+    remainingEl.textContent = `${usdt(cap.headroom)} remaining before you hit your cap.`;
+    remainingEl.style.color = 'var(--text-dim)';
+  }
+}
+
+async function loadReferral() {
+  try {
+    const ref = await apiRequest('/user/referral');
+    const base = window.location.origin + window.location.pathname.replace(/dashboard\.html$/, '');
+    document.getElementById('leftLink').value = base + ref.leftPath;
+    document.getElementById('rightLink').value = base + ref.rightPath;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function copyLink(id) {
+  const input = document.getElementById(id);
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    const msg = document.getElementById('copyMsg');
+    msg.textContent = 'Link copied to clipboard!';
+    msg.className = 'msg success';
+    setTimeout(() => { msg.textContent = ''; msg.className = 'msg'; }, 2000);
+  });
+}
+
+loadDashboard();
+loadReferral();
+</script>
+</body>
+</html>

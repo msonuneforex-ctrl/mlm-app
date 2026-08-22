@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Support Management - Bee AI Verse Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-bar select {
+    margin: 0;
+    min-width: 180px;
+    flex: 1;
+  }
+  .priority-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.03em;
+  }
+  .p1 { background: rgba(255,60,60,0.18);   color: #ff5050; }
+  .p2 { background: rgba(255,140,0,0.18);   color: #ff9020; }
+  .p3 { background: rgba(255,210,0,0.18);   color: #d4a800; }
+  .p4 { background: rgba(80,140,255,0.18);  color: #6090ff; }
+  .p5 { background: rgba(180,80,255,0.18);  color: #bb60ff; }
+  .p6 { background: rgba(0,200,100,0.18);   color: #00c870; }
+  .p7 { background: rgba(160,160,160,0.18); color: #aaa; }
+  .type-dot { margin-right: 4px; }
+  tr.row-open td { border-left: 3px solid var(--accent); }
+  tr.row-in_progress td { border-left: 3px solid var(--warning); }
+  tr.row-closed td { border-left: 3px solid var(--border); opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Support Management</h1>
+      <p>Tickets are sorted by priority — critical issues rise to the top automatically.</p>
+    </div>
+
+    <div class="panel filter-bar">
+      <input type="text" id="tokenSearch" placeholder="Search token, subject, or member…" style="flex:2;min-width:220px;margin:0" />
+      <select id="filterStatus" style="margin:0">
+        <option value="">All Statuses</option>
+        <option value="open">Open</option>
+        <option value="in_progress">In Progress</option>
+        <option value="closed">Closed</option>
+      </select>
+      <select id="filterType" style="margin:0">
+        <option value="">All Types</option>
+        <option value="access_issue">🔴 Account Blocked / Access Issue</option>
+        <option value="withdrawal_problem">🟠 Withdrawal Problem</option>
+        <option value="deposit_issue">🟡 Deposit Issue</option>
+        <option value="kyc_verification">🔵 KYC / Verification</option>
+        <option value="email_profile">🟣 Email / Profile Change</option>
+        <option value="level_income">🟢 Level Income Query</option>
+        <option value="general_query">⚪ General Query</option>
+      </select>
+      <button class="btn-primary" onclick="loadTickets()" style="margin:0;white-space:nowrap">🔄 Refresh</button>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;color:var(--muted)" id="ticketCount">Loading…</div>
+        <div style="display:flex;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap">
+          <span><span class="priority-badge p1">P1</span> Critical</span>
+          <span><span class="priority-badge p2">P2</span> High</span>
+          <span><span class="priority-badge p3">P3</span> Medium</span>
+          <span><span class="priority-badge p4">P4</span> Normal</span>
+          <span><span class="priority-badge p7">P7</span> Low</span>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Priority</th>
+            <th>Token</th>
+            <th>Member</th>
+            <th>Type</th>
+            <th>Subject</th>
+            <th>Status</th>
+            <th>Updated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ticketsBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="threadPanel" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+        <div>
+          <h3 id="threadTitle" style="margin:0 0 4px">Ticket</h3>
+          <div id="threadMeta" style="font-size:12px;color:var(--muted)"></div>
+        </div>
+        <div class="net-toggle" style="width:auto;margin:0" id="statusToggle">
+          <div class="net-pill" data-status="open">Open</div>
+          <div class="net-pill" data-status="in_progress">In Progress</div>
+          <div class="net-pill" data-status="closed">Closed</div>
+        </div>
+      </div>
+      <div id="ticketThread" class="ticket-thread"></div>
+      <form id="replyForm">
+        <label>Reply</label>
+        <textarea id="replyMessage" placeholder="Type your reply..." required></textarea>
+        <button type="submit" class="btn-primary" style="margin-top:12px">Send Reply</button>
+      </form>
+      <div id="replyMsg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('support', 'admin');
+
+const TYPE_META = {
+  access_issue:       { dot: '🔴', label: 'Access Issue',     p: 1 },
+  withdrawal_problem: { dot: '🟠', label: 'Withdrawal',       p: 2 },
+  deposit_issue:      { dot: '🟡', label: 'Deposit',          p: 3 },
+  kyc_verification:   { dot: '🔵', label: 'KYC',             p: 4 },
+  email_profile:      { dot: '🟣', label: 'Profile Change',   p: 5 },
+  level_income:       { dot: '🟢', label: 'Level Income',     p: 6 },
+  general_query:      { dot: '⚪', label: 'General',          p: 7 },
+};
+
+let allTickets = [];
+let openToken = null;
+
+function priorityLabel(p) {
+  return `<span class="priority-badge p${p}">P${p}</span>`;
+}
+
+function renderTickets(rows) {
+  const tbody = document.getElementById('ticketsBody');
+  document.getElementById('ticketCount').textContent = `${rows.length} ticket${rows.length !== 1 ? 's' : ''}`;
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted)">No tickets match your filters</td></tr>'; return; }
+  tbody.innerHTML = rows.map(t => {
+    const typ = TYPE_META[t.ticket_type] || TYPE_META.general_query;
+    const p = t.priority || typ.p;
+    return `<tr class="row-${t.status}">
+      <td>${priorityLabel(p)}</td>
+      <td><strong>${escapeHtml(t.ticket_no)}</strong></td>
+      <td>${escapeHtml(t.user_name)}<br><span style="color:var(--text-dim);font-size:11px">${escapeHtml(t.user_code)}</span></td>
+      <td style="white-space:nowrap"><span class="type-dot">${typ.dot}</span>${typ.label}</td>
+      <td>${escapeHtml(t.subject)}</td>
+      <td><span class="badge ${t.status}">${t.status.replace('_',' ')}</span></td>
+      <td style="font-size:12px">${new Date(t.updated_at || t.created_at).toLocaleString()}</td>
+      <td><button class="btn-small btn-primary" onclick="openTicket('${t.ticket_no}')">View</button></td>
+    </tr>`;
+  }).join('');
+  replayMotion('#ticketsBody');
+}
+
+function applyLocalFilter() {
+  const q = document.getElementById('tokenSearch').value.trim().toLowerCase();
+  const st = document.getElementById('filterStatus').value;
+  const tp = document.getElementById('filterType').value;
+  let rows = allTickets;
+  if (q) rows = rows.filter(t =>
+    (t.ticket_no || '').toLowerCase().includes(q) ||
+    (t.subject || '').toLowerCase().includes(q) ||
+    (t.user_name || '').toLowerCase().includes(q) ||
+    (t.user_code || '').toLowerCase().includes(q)
+  );
+  if (st) rows = rows.filter(t => t.status === st);
+  if (tp) rows = rows.filter(t => t.ticket_type === tp);
+  renderTickets(rows);
+}
+
+document.getElementById('tokenSearch').addEventListener('input', applyLocalFilter);
+document.getElementById('filterStatus').addEventListener('change', applyLocalFilter);
+document.getElementById('filterType').addEventListener('change', applyLocalFilter);
+
+async function loadTickets() {
+  try {
+    allTickets = await apiRequest('/admin/support');
+    applyLocalFilter();
+  } catch (err) {
+    document.getElementById('ticketsBody').innerHTML = '<tr><td colspan="8">Unable to load tickets</td></tr>';
+  }
+}
+
+async function openTicket(token) {
+  openToken = token;
+  const data = await apiRequest(`/admin/support/${token}`);
+  const t = data.ticket;
+  const typ = TYPE_META[t.ticket_type] || TYPE_META.general_query;
+  const p = t.priority || typ.p;
+
+  document.getElementById('threadPanel').style.display = 'block';
+  document.getElementById('threadTitle').textContent = `${t.ticket_no} — ${t.subject}`;
+  document.getElementById('threadMeta').innerHTML =
+    `${priorityLabel(p)} ${typ.dot} ${typ.label} &nbsp;·&nbsp; ${escapeHtml(t.user_name)} (${escapeHtml(t.user_code)})`;
+
+  document.getElementById('ticketThread').innerHTML = data.messages.map(m => `
+    <div class="ticket-msg from-${m.sender_role}">
+      <div class="meta">${m.sender_role === 'admin' ? 'Support Team' : escapeHtml(t.user_name)} · ${new Date(m.created_at).toLocaleString()}</div>
+      ${escapeHtml(m.message)}
+    </div>
+  `).join('');
+
+  document.querySelectorAll('#statusToggle .net-pill').forEach(p => p.classList.toggle('active', p.dataset.status === t.status));
+  document.getElementById('threadPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.getElementById('statusToggle').addEventListener('click', async (e) => {
+  const pill = e.target.closest('.net-pill');
+  if (!pill || !openToken) return;
+  try {
+    await apiRequest(`/admin/support/${openToken}/status`, 'PUT', { status: pill.dataset.status });
+    document.querySelectorAll('#statusToggle .net-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    toast('Ticket status updated');
+    await loadTickets();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
+
+document.getElementById('replyForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!openToken) return;
+  const msgEl = document.getElementById('replyMsg');
+  msgEl.textContent = '';
+  try {
+    await apiRequest(`/admin/support/${openToken}/reply`, 'POST', {
+      message: document.getElementById('replyMessage').value
+    });
+    document.getElementById('replyMessage').value = '';
+    await openTicket(openToken);
+    await loadTickets();
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.classList.add('error');
+  }
+});
+
+loadTickets();
+</script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Deposit - MLM Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+<div id="sidebar-root"></div>
+<div class="main-content">
+<div class="page-header">
+  <h1>Deposit</h1>
+  <p>Add funds to your wallet.</p>
+</div>
+<div class="grid-2">
+  <div class="panel">
+    <h3>New Deposit Request</h3>
+
+    <label>Network</label>
+    <div class="net-toggle" id="depNetToggle">
+      <div class="net-pill active" data-net="BEP20">USDT · BEP20</div>
+      <div class="net-pill" data-net="TRC20">USDT · TRC20</div>
+    </div>
+
+    <div class="addr-card">
+      <div class="net-label">Send USDT to this address</div>
+      <div class="addr-value" id="depositAddress">Loading...</div>
+      <div class="empty-hint">Only send USDT on the selected network. Sending on the wrong network can lose funds.</div>
+    </div>
+
+    <form id="depositForm">
+      <label>Amount Sent (USDT)</label>
+      <input type="number" id="amount" min="1" step="0.01" required />
+
+      <label>Transaction Hash</label>
+      <input type="text" id="txn_ref" placeholder="Paste the on-chain transaction hash" required />
+
+      <div class="panel" style="background:rgba(255,255,255,0.03);margin:6px 0 18px 0;padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">You Sent</span><strong id="feeTotal">0.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">Platform Fee (5%)</span><strong id="feeFee" style="color:var(--warning)">0.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0;border-top:1px solid var(--border);margin-top:6px;padding-top:10px">
+          <span style="color:var(--muted)">Credited to Wallet</span><strong id="feeNet" style="color:var(--success)">0.00 USDT</strong>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary">Submit Deposit Request</button>
+    </form>
+    <div id="msg" class="msg"></div>
+    <p style="font-size:13px;color:var(--muted);margin-top:10px">
+      Deposits are credited to your wallet only after admin approval. A 5% platform fee applies to every deposit.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3>Deposit History</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Sent</th><th>Platform Fee</th><th>Credited</th><th>Network</th><th>Tx Hash</th><th>Status</th></tr></thead>
+      <tbody id="historyBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('deposit', 'user');
+
+let selectedNet = 'BEP20';
+
+document.getElementById('depNetToggle').addEventListener('click', (e) => {
+  const pill = e.target.closest('.net-pill');
+  if (!pill) return;
+  document.querySelectorAll('#depNetToggle .net-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  selectedNet = pill.dataset.net;
+  loadDepositAddress();
+});
+
+async function loadDepositAddress() {
+  const el = document.getElementById('depositAddress');
+  el.textContent = 'Loading...';
+  try {
+    const res = await apiRequest(`/user/deposit-address?network=${selectedNet}`);
+    el.innerHTML = res.address ? res.address : '<span class="empty-hint">Not configured yet — contact support</span>';
+  } catch (err) {
+    el.textContent = 'Unable to load address';
+  }
+}
+
+function updateFeePreview() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const net = Math.round((amount / 1.05) * 100) / 100;
+  const fee = Math.round((amount - net) * 100) / 100;
+  document.getElementById('feeTotal').textContent = usdt(amount);
+  document.getElementById('feeFee').textContent = usdt(fee);
+  document.getElementById('feeNet').textContent = usdt(net);
+}
+document.getElementById('amount').addEventListener('input', updateFeePreview);
+
+async function loadHistory() {
+  try {
+    const rows = await apiRequest('/user/deposit/history');
+    const tbody = document.getElementById('historyBody');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7">No deposits yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td>${usdt(r.amount)}</td>
+        <td>${usdt(r.fee_amount || 0)}</td>
+        <td>${usdt(r.net_amount || 0)}</td>
+        <td>${r.network || '-'}</td>
+        <td style="font-size:12px;color:var(--text-dim)">${r.txn_ref || '-'}</td>
+        <td><span class="badge ${r.status}">${r.status}</span></td>
+      </tr>
+    `).join('');
+    replayMotion('#historyBody');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById('depositForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = ''; msg.className = 'msg';
+
+  try {
+    const res = await apiRequest('/user/deposit', 'POST', {
+      amount: parseFloat(document.getElementById('amount').value),
+      network: selectedNet,
+      txn_ref: document.getElementById('txn_ref').value
+    });
+    msg.textContent = res.message;
+    msg.className = 'msg success';
+    toast(res.message, 'success');
+    document.getElementById('depositForm').reset();
+    loadHistory();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+    toast(err.message, 'error');
+  }
+});
+
+loadDepositAddress();
+loadHistory();
+</script>
+</body>
+</html>

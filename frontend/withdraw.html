@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Withdraw - MLM Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+<div id="sidebar-root"></div>
+<div class="main-content">
+<div class="page-header">
+  <h1>Withdraw</h1>
+  <p>Request a payout from your chosen wallet balance.</p>
+</div>
+<div class="grid-2">
+  <div class="panel">
+    <h3>New Withdrawal Request</h3>
+
+    <label>Select Wallet Source</label>
+    <div class="net-toggle" id="walletSourceToggle" style="margin-bottom:14px">
+      <div class="net-pill active" data-wallet="main">Main Wallet</div>
+      <div class="net-pill" data-wallet="referral">Referral Wallet</div>
+    </div>
+
+    <p style="margin-bottom:14px">Available Balance: <strong id="walletBalance" style="color:var(--ice)">0.00 USDT</strong></p>
+
+    <label>Network</label>
+    <div class="net-toggle" id="wdNetToggle">
+      <div class="net-pill active" data-net="BEP20">USDT · BEP20</div>
+      <div class="net-pill" data-net="TRC20">USDT · TRC20</div>
+    </div>
+
+    <div class="addr-card">
+      <div class="net-label">Payout Address</div>
+      <div class="addr-value" id="payoutAddress">Loading...</div>
+      <div class="empty-hint" id="payoutHint"></div>
+    </div>
+
+    <form id="withdrawForm">
+      <label>Amount (USDT)</label>
+      <input type="number" id="amount" min="1" step="0.01" required />
+
+      <div class="panel" style="background:rgba(255,255,255,0.03);margin:6px 0 18px 0;padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">Withdrawal Amount</span><strong id="feeTotal">0.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">Platform Fee (5%)</span><strong id="feeFee" style="color:var(--warning)">0.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0;border-top:1px solid var(--border);margin-top:6px;padding-top:10px">
+          <span style="color:var(--muted)">You Receive</span><strong id="feeNet" style="color:var(--success)">0.00 USDT</strong>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="submitBtn">Submit Withdrawal Request</button>
+    </form>
+    <div id="msg" class="msg"></div>
+    <p style="font-size:13px;color:var(--muted);margin-top:10px">
+      The full amount is deducted from your chosen wallet immediately. A 5% platform fee applies to every withdrawal.
+      Funds are always paid to the address saved on your <a href="profile.html" style="color:var(--ice)">Profile</a> — never anywhere else.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3>Withdrawal History</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Wallet</th><th>Amount</th><th>Network</th><th>Address</th><th>Status</th></tr></thead>
+      <tbody id="historyBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('withdraw', 'user');
+
+let selectedNet = 'BEP20';
+let selectedWallet = 'main';
+let userWallets = { main_wallet: 0, referral_wallet: 0 };
+let profileAddresses = { withdrawal_address_bep20: null, withdrawal_address_trc20: null };
+
+function refreshBalanceUI() {
+  const balEl = document.getElementById('walletBalance');
+  const targetBal = selectedWallet === 'referral' ? userWallets.referral_wallet : userWallets.main_wallet;
+  balEl.dataset.raw = 0;
+  animateCounter(balEl, targetBal || 0, (n) => usdt(n));
+}
+
+function refreshPayoutAddressUI() {
+  const addr = selectedNet === 'BEP20' ? profileAddresses.withdrawal_address_bep20 : profileAddresses.withdrawal_address_trc20;
+  const el = document.getElementById('payoutAddress');
+  const hint = document.getElementById('payoutHint');
+  const btn = document.getElementById('submitBtn');
+  if (addr) {
+    el.textContent = addr;
+    hint.textContent = '';
+    btn.disabled = false;
+    btn.style.opacity = 1;
+  } else {
+    el.innerHTML = '<span class="empty-hint">No address saved</span>';
+    hint.innerHTML = `Add a ${selectedNet} address on your <a href="profile.html" style="color:var(--ice)">Profile</a> page before withdrawing.`;
+    btn.disabled = true;
+    btn.style.opacity = 0.5;
+  }
+}
+
+document.getElementById('walletSourceToggle').addEventListener('click', (e) => {
+  const pill = e.target.closest('.net-pill');
+  if (!pill) return;
+  document.querySelectorAll('#walletSourceToggle .net-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  selectedWallet = pill.dataset.wallet;
+  refreshBalanceUI();
+});
+
+document.getElementById('wdNetToggle').addEventListener('click', (e) => {
+  const pill = e.target.closest('.net-pill');
+  if (!pill) return;
+  document.querySelectorAll('#wdNetToggle .net-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  selectedNet = pill.dataset.net;
+  refreshPayoutAddressUI();
+});
+
+function updateFeePreview() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const fee = Math.round(amount * 0.05 * 100) / 100;
+  const net = Math.round((amount - fee) * 100) / 100;
+  document.getElementById('feeTotal').textContent = usdt(amount);
+  document.getElementById('feeFee').textContent = usdt(fee);
+  document.getElementById('feeNet').textContent = usdt(net);
+}
+document.getElementById('amount').addEventListener('input', updateFeePreview);
+
+async function loadWallet() {
+  const [dash, profile] = await Promise.all([
+    apiRequest('/user/dashboard'),
+    apiRequest('/user/profile')
+  ]);
+  userWallets = dash.user;
+  refreshBalanceUI();
+  profileAddresses = profile;
+  refreshPayoutAddressUI();
+}
+
+async function loadHistory() {
+  try {
+    const rows = await apiRequest('/user/withdraw/history');
+    const tbody = document.getElementById('historyBody');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No withdrawals yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td style="text-transform:capitalize">${r.wallet_type || 'Main'}</td>
+        <td>${usdt(r.amount)}</td>
+        <td>${r.network || '-'}</td>
+        <td style="font-size:12px;color:var(--text-dim)">${r.account_details || '-'}</td>
+        <td><span class="badge ${r.status}">${r.status}</span></td>
+      </tr>
+    `).join('');
+    replayMotion('#historyBody');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = ''; msg.className = 'msg';
+
+  try {
+    const res = await apiRequest('/user/withdraw', 'POST', {
+      amount: parseFloat(document.getElementById('amount').value),
+      network: selectedNet,
+      walletType: selectedWallet
+    });
+    msg.textContent = res.message;
+    msg.className = 'msg success';
+    toast(res.message, 'success');
+    document.getElementById('withdrawForm').reset();
+    updateFeePreview();
+    loadHistory();
+    loadWallet();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+    toast(err.message, 'error');
+  }
+});
+
+loadWallet();
+loadHistory();
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Direct Team - Bee AI Verse</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Direct Team</h1>
+      <p>Members you personally sponsored.</p>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Wallet</th><th>Status</th><th>Joined</th></tr></thead>
+        <tbody id="teamBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('direct-team', 'user');
+
+async function loadTeam() {
+  try {
+    const rows = await apiRequest('/user/direct-team');
+    const tbody = document.getElementById('teamBody');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No direct referrals yet. Share your email to get started.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.email)}</td>
+        <td>${r.position || '-'}</td>
+        <td>${usdt(r.wallet_balance)}</td>
+        <td><span class="badge ${r.status === 'active' ? 'approved' : 'rejected'}">${escapeHtml(r.status)}</span></td>
+        <td>${new Date(r.created_at).toLocaleDateString()}</td>
+      </tr>
+    `).join('');
+    replayMotion('#teamBody');
+  } catch (err) {
+    console.error(err);
+  }
+}
+loadTeam();
+</script>
+</body>
+</html>

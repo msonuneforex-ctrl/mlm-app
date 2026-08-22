@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Admin - Notifications</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Notification Manager</h1>
+      <p>Send an announcement to every member, or a message to one member's notification bell.</p>
+    </div>
+
+    <!-- COMPOSE PANEL -->
+    <div class="panel">
+      <h3>Compose Notification</h3>
+      <form id="notifForm" onsubmit="handleSendNotification(event)">
+        <div class="notif-audience-toggle" style="margin-top:14px">
+          <label><input type="radio" name="audience" value="all" checked onchange="onAudienceChange()"> All members</label>
+          <label><input type="radio" name="audience" value="user" onchange="onAudienceChange()"> Specific member</label>
+        </div>
+
+        <div id="targetUserWrap" style="display:none;margin-top:10px">
+          <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Target Member</label>
+          <select id="notifTargetUser" style="width:100%;padding:10px;border-radius:6px;background:var(--bg-dark);color:#fff;border:1px solid var(--border)">
+            <option value="">Loading members…</option>
+          </select>
+        </div>
+
+        <div class="grid-2" style="margin-top:14px">
+          <div style="grid-column:1 / -1">
+            <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Title</label>
+            <input type="text" id="notifTitle" maxlength="120" required placeholder="e.g. Scheduled maintenance tonight"
+              style="width:100%;padding:10px;border-radius:6px;background:var(--bg-dark);color:#fff;border:1px solid var(--border)" />
+          </div>
+          <div style="grid-column:1 / -1">
+            <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Message</label>
+            <textarea id="notifMessage" rows="4" maxlength="1000" required placeholder="Write the notification message…"
+              style="width:100%;padding:10px;border-radius:6px;background:var(--bg-dark);color:#fff;border:1px solid var(--border);font-family:inherit;resize:vertical"></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:18px;padding:10px 20px">Send Notification</button>
+      </form>
+      <div id="notifFormMsg" class="msg" style="margin-top:10px"></div>
+    </div>
+
+    <!-- SENT HISTORY -->
+    <div class="panel" style="margin-top:20px">
+      <h3>Sent Notifications</h3>
+      <div id="sentNotifList" style="margin-top:10px">
+        <p class="msg">Loading...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('notifications', 'admin');
+
+let _allMembersForNotif = [];
+
+function onAudienceChange() {
+  const audience = document.querySelector('input[name="audience"]:checked').value;
+  document.getElementById('targetUserWrap').style.display = audience === 'user' ? 'block' : 'none';
+}
+
+async function loadMembersForNotif() {
+  const select = document.getElementById('notifTargetUser');
+  try {
+    const users = await apiRequest('/admin/users');
+    _allMembersForNotif = users;
+    select.innerHTML = users.map(u => `<option value="${u.id}">${escapeHtml(u.user_code)} — ${escapeHtml(u.name)}</option>`).join('');
+  } catch (err) {
+    select.innerHTML = `<option value="">Failed to load members</option>`;
+  }
+}
+
+async function handleSendNotification(event) {
+  event.preventDefault();
+  const msgEl = document.getElementById('notifFormMsg');
+  const audience = document.querySelector('input[name="audience"]:checked').value;
+  const title = document.getElementById('notifTitle').value.trim();
+  const message = document.getElementById('notifMessage').value.trim();
+  const userId = document.getElementById('notifTargetUser').value;
+
+  if (audience === 'user' && !userId) {
+    msgEl.textContent = 'Please choose a target member.';
+    msgEl.className = 'msg error';
+    return;
+  }
+
+  msgEl.textContent = 'Sending...';
+  msgEl.className = 'msg';
+
+  try {
+    await apiRequest('/admin/notifications', 'POST', {
+      title, message, audience,
+      userId: audience === 'user' ? Number(userId) : undefined
+    });
+    msgEl.textContent = 'Notification sent successfully.';
+    msgEl.className = 'msg success';
+    document.getElementById('notifForm').reset();
+    onAudienceChange();
+    loadSentNotifications();
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.className = 'msg error';
+  }
+}
+
+function timeAgoAdmin(dateStr) {
+  const then = new Date(dateStr.replace(' ', 'T') + 'Z').getTime();
+  const diffMin = Math.floor((Date.now() - then) / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return new Date(dateStr.replace(' ', 'T') + 'Z').toLocaleDateString();
+}
+
+async function loadSentNotifications() {
+  const box = document.getElementById('sentNotifList');
+  try {
+    const rows = await apiRequest('/admin/notifications');
+    if (!rows.length) {
+      box.innerHTML = `<p class="msg">No notifications sent yet.</p>`;
+      return;
+    }
+    box.innerHTML = rows.map(n => `
+      <div class="notif-sent-row">
+        <div style="flex:1;min-width:0">
+          <div class="notif-sent-title">${escapeHtml(n.title)}</div>
+          <div class="notif-sent-msg">${escapeHtml(n.message)}</div>
+          <div class="notif-sent-meta">
+            <span class="notif-audience-badge">${n.audience === 'all' ? 'All Members' : escapeHtml(n.target_user_code || 'Member')}</span>
+            Read by ${n.read_count}/${n.audience_count} &middot; ${timeAgoAdmin(n.created_at)}
+          </div>
+        </div>
+        <button class="btn-primary" style="padding:6px 12px;font-size:12.5px;background:#a33;flex-shrink:0" onclick="deleteNotification(${n.id})">Delete</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    box.innerHTML = `<p class="msg error">${err.message}</p>`;
+  }
+}
+
+async function deleteNotification(id) {
+  if (!confirm('Delete this notification? Members will no longer see it.')) return;
+  try {
+    await apiRequest(`/admin/notifications/${id}`, 'DELETE');
+    toast('Notification deleted');
+    loadSentNotifications();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+loadMembersForNotif();
+loadSentNotifications();
+</script>
+</body>
+</html>

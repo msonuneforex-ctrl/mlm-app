@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Deposits - Bee AI Verse Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Deposit Requests</h1>
+      <p>Approve or reject incoming deposit requests.</p>
+    </div>
+
+    <div class="panel" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="depositSearch" placeholder="Filter by User ID, name, or email..." style="flex:1;min-width:220px;margin:0" />
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead><tr><th>Date</th><th>User ID</th><th>User</th><th>Amount</th><th>Method</th><th>Ref</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="depositsBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('deposits', 'admin');
+
+let allDeposits = [];
+
+function renderDeposits(rows) {
+  document.getElementById('depositsBody').innerHTML = rows.map(d => `
+    <tr>
+      <td>${new Date(d.created_at).toLocaleString()}</td>
+      <td><a href="admin-user-transactions.html?id=${d.user_id}" style="color:var(--ice);font-weight:700;text-decoration:none">${d.user_code || '-'}</a></td>
+      <td>${d.user_name}<br><small style="color:var(--text-dim)">${d.user_email}</small></td>
+      <td>${usdt(d.amount)}</td>
+      <td>${d.method}</td>
+      <td>${d.txn_ref || '-'}</td>
+      <td><span class="badge ${d.status}">${d.status}</span></td>
+      <td>
+        ${d.status === 'pending' ? `
+          <button class="btn-small btn-success" onclick="approveDeposit(${d.id})">Approve</button>
+          <button class="btn-small btn-danger" onclick="rejectDeposit(${d.id})">Reject</button>
+        ` : (d.remarks || '-')}
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="8">No deposit requests</td></tr>';
+  replayMotion('#depositsBody');
+}
+
+document.getElementById('depositSearch').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return renderDeposits(allDeposits);
+  renderDeposits(allDeposits.filter(d =>
+    (d.user_code || '').toLowerCase().includes(q) ||
+    (d.user_name || '').toLowerCase().includes(q) ||
+    (d.user_email || '').toLowerCase().includes(q)
+  ));
+});
+
+async function loadDeposits() {
+  allDeposits = await apiRequest('/admin/deposits');
+  renderDeposits(allDeposits);
+}
+
+async function approveDeposit(id) { await apiRequest(`/admin/deposits/${id}/approve`, 'PUT'); loadDeposits(); }
+async function rejectDeposit(id) { await apiRequest(`/admin/deposits/${id}/reject`, 'PUT'); loadDeposits(); }
+
+loadDeposits();
+</script>
+</body>
+</html>
