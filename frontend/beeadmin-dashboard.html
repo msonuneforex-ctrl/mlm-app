@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Admin Overview - Bee AI Verse</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Admin Overview</h1>
+      <p>Platform-wide snapshot at a glance.</p>
+    </div>
+
+    <div class="cards" id="statsCards"></div>
+
+    <div class="grid-2" style="margin-bottom:0">
+      <div class="panel" style="background:linear-gradient(135deg,rgba(255,181,71,0.12),rgba(255,181,71,0.03));border-color:rgba(255,181,71,0.3)">
+        <h3>Admin Wallet</h3>
+        <p style="font-size:13px;color:var(--muted);margin-top:-6px">
+          Collects the 5% platform fee from every deposit and withdrawal, minus referral bonuses paid out to sponsors.
+        </p>
+        <div class="counter" style="font-size:28px;font-weight:800;color:var(--warning);margin-top:6px" id="adminWalletValue" data-raw="0">0.00 USDT</div>
+      </div>
+      <div class="panel" style="background:linear-gradient(135deg,rgba(100,220,150,0.12),rgba(100,220,150,0.03));border-color:rgba(100,220,150,0.35)">
+        <h3>Admin Level Wallet</h3>
+        <p style="font-size:13px;color:var(--muted);margin-top:-6px">
+          Collects all level unlock payments (20 USDT per level) from users — via wallet deduction or on-chain deposit. Never mixed with platform fee income.
+        </p>
+        <div class="counter" style="font-size:28px;font-weight:800;color:#64dc96;margin-top:6px" id="adminLevelWalletValue" data-raw="0">0.00 USDT</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>USDT Deposit Addresses</h3>
+        <p style="font-size:13px;color:var(--muted);margin-top:-6px">Shown to users on their Deposit page.</p>
+        <form id="depositAddrForm">
+          <label>BEP20 Receiving Address</label>
+          <input type="text" id="cfgBep20" placeholder="0x..." />
+          <label>TRC20 Receiving Address</label>
+          <input type="text" id="cfgTrc20" placeholder="T..." />
+          <button type="submit" class="btn-primary">Save Addresses</button>
+        </form>
+        <div id="cfgMsg" class="msg"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Withdrawal Settings</h3>
+        <p style="font-size:13px;color:var(--muted);margin-top:-6px">Control when users can withdraw from their main wallet. Referral wallet is always open.</p>
+        <form id="withdrawalSettingsForm">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:14px">
+            <input type="checkbox" id="wdDayEnabled" style="width:18px;height:18px;cursor:pointer" />
+            <span>Restrict withdrawals to specific days of the week</span>
+          </label>
+          <div id="wdDaysPanel">
+            <label>Allowed Withdrawal Day(s)</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="wdDayCheckboxes">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="1"/> Monday</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="2"/> Tuesday</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="3"/> Wednesday</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="4"/> Thursday</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="5"/> Friday</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="6"/> Saturday</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="wdDay" value="7"/> Sunday</label>
+            </div>
+          </div>
+          <label>Monthly Withdrawal Limit (% of main wallet balance)</label>
+          <input type="number" id="wdLimitPct" min="1" max="100" step="1" placeholder="10" style="max-width:120px" />
+          <small style="display:block;color:var(--muted);margin-top:4px;margin-bottom:14px">e.g. 10 means users can withdraw up to 10% of their main wallet per calendar month. Does not apply to referral wallet.</small>
+          <button type="submit" class="btn-primary">Save Withdrawal Settings</button>
+        </form>
+        <div id="wdSettingsMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Admin Wallet History</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th></tr></thead>
+        <tbody id="adminHistoryBody"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel" style="border-color:rgba(100,220,150,0.3)">
+      <h3 style="color:#64dc96">Admin Level Wallet History</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Amount</th><th>Note</th></tr></thead>
+        <tbody id="levelWalletHistoryBody"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="quick-actions">
+      <a class="action-card" href="beeadmin-deposits.html">
+        <span class="ic">⬆</span>
+        <div class="t">Review Deposits</div>
+        <div class="d">Approve or reject pending requests</div>
+      </a>
+      <a class="action-card" href="beeadmin-withdrawals.html">
+        <span class="ic">⬇</span>
+        <div class="t">Review Withdrawals</div>
+        <div class="d">Process pending payouts</div>
+      </a>
+      <a class="action-card" href="beeadmin-users.html">
+        <span class="ic">⬡</span>
+        <div class="t">Manage Users</div>
+        <div class="d">Block, unblock, and inspect accounts</div>
+      </a>
+      <a class="action-card" href="beeadmin-reports.html">
+        <span class="ic">◆</span>
+        <div class="t">View Reports</div>
+        <div class="d">Growth and financial trends</div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('overview', 'admin');
+
+async function loadStats() {
+  const s = await apiRequest('/admin/stats');
+  const walletEl = document.getElementById('adminWalletValue');
+  animateCounter(walletEl, s.adminWallet || 0, (n) => usdt(n));
+  const levelWalletEl = document.getElementById('adminLevelWalletValue');
+  if (levelWalletEl) animateCounter(levelWalletEl, s.adminLevelWallet || 0, (n) => usdt(n));
+  document.getElementById('statsCards').innerHTML = `
+    <div class="stat-card"><div class="label">Total Users</div><div class="value">${s.totalUsers}</div></div>
+    <div class="stat-card"><div class="label">Approved Deposits</div><div class="value">${usdt(s.totalDepositsApproved)}</div></div>
+    <div class="stat-card"><div class="label">Pending Deposits</div><div class="value">${s.pendingDeposits}</div></div>
+    <div class="stat-card"><div class="label">Approved Withdrawals</div><div class="value">${usdt(s.totalWithdrawalsApproved)}</div></div>
+    <div class="stat-card"><div class="label">Pending Withdrawals</div><div class="value">${s.pendingWithdrawals}</div></div>
+  `;
+}
+
+// ---------- Deposit address settings ----------
+async function loadDepositAddrSettings() {
+  const res = await apiRequest('/admin/settings/deposit-addresses');
+  document.getElementById('cfgBep20').value = res.BEP20 || '';
+  document.getElementById('cfgTrc20').value = res.TRC20 || '';
+}
+document.getElementById('depositAddrForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('cfgMsg');
+  msg.textContent = ''; msg.className = 'msg';
+  try {
+    const res = await apiRequest('/admin/settings/deposit-addresses', 'PUT', {
+      BEP20: document.getElementById('cfgBep20').value.trim(),
+      TRC20: document.getElementById('cfgTrc20').value.trim()
+    });
+    msg.textContent = res.message; msg.className = 'msg success';
+    toast(res.message, 'success');
+  } catch (err) {
+    msg.textContent = err.message; msg.className = 'msg error';
+    toast(err.message, 'error');
+  }
+});
+
+// ---------- Admin wallet history ----------
+const AW_LABELS = { platform_fee: 'Platform Fee', referral_fee_collected: 'Referral Fee (IN)', referral_bonus_paid: 'Referral Payout (OUT)', referral_bonus_retained: 'Referral Retained', admin_withdrawal: 'Admin Withdrawal' };
+async function loadAdminHistory() {
+  const rows = await apiRequest('/admin/wallet/history');
+  const tbody = document.getElementById('adminHistoryBody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4">No transactions yet</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${new Date(r.created_at).toLocaleString()}</td>
+      <td><span class="badge ${r.type}">${AW_LABELS[r.type] || r.type}</span></td>
+      <td class="${r.amount >= 0 ? 'amount-pos' : 'amount-neg'}">${r.amount >= 0 ? '+' : ''}${usdt(r.amount)}</td>
+      <td style="font-size:12.5px;color:var(--text-dim)">${r.note || '-'}</td>
+    </tr>
+  `).join('');
+  replayMotion('#adminHistoryBody');
+}
+
+// ---------- Level Wallet ----------
+async function loadLevelWalletHistory() {
+  try {
+    const rows = await apiRequest('/admin/level-wallet/history');
+    const tbody = document.getElementById('levelWalletHistoryBody');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="3">No level wallet transactions yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td class="${r.amount >= 0 ? 'amount-pos' : 'amount-neg'}">${r.amount >= 0 ? '+' : ''}${usdt(r.amount)}</td>
+        <td style="font-size:12.5px;color:var(--text-dim)">${r.note || '-'}</td>
+      </tr>
+    `).join('');
+    replayMotion('#levelWalletHistoryBody');
+  } catch (e) { console.error(e); }
+}
+
+// ---------- Withdrawal settings ----------
+async function loadWithdrawalSettings() {
+  const s = await apiRequest('/admin/settings/withdrawal');
+  document.getElementById('wdDayEnabled').checked = s.withdrawal_day_enabled;
+  document.getElementById('wdDaysPanel').style.display = s.withdrawal_day_enabled ? 'block' : 'none';
+  document.getElementById('wdLimitPct').value = s.withdrawal_monthly_limit_pct;
+  const days = String(s.withdrawal_days).split(',').map(Number);
+  document.querySelectorAll('[name="wdDay"]').forEach(cb => {
+    cb.checked = days.includes(parseInt(cb.value));
+  });
+}
+document.getElementById('wdDayEnabled').addEventListener('change', function() {
+  document.getElementById('wdDaysPanel').style.display = this.checked ? 'block' : 'none';
+});
+document.getElementById('withdrawalSettingsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('wdSettingsMsg');
+  msg.textContent = ''; msg.className = 'msg';
+  const checkedDays = [...document.querySelectorAll('[name="wdDay"]:checked')].map(cb => cb.value);
+  const dayEnabled = document.getElementById('wdDayEnabled').checked;
+  if (dayEnabled && checkedDays.length === 0) {
+    msg.textContent = 'Select at least one day.'; msg.className = 'msg error'; return;
+  }
+  try {
+    const res = await apiRequest('/admin/settings/withdrawal', 'PUT', {
+      withdrawal_day_enabled: dayEnabled,
+      withdrawal_days: checkedDays.join(',') || '1',
+      withdrawal_monthly_limit_pct: parseFloat(document.getElementById('wdLimitPct').value)
+    });
+    msg.textContent = res.message; msg.className = 'msg success';
+    toast(res.message, 'success');
+  } catch (err) {
+    msg.textContent = err.message; msg.className = 'msg error';
+    toast(err.message, 'error');
+  }
+});
+
+loadStats();
+loadDepositAddrSettings();
+loadWithdrawalSettings();
+loadAdminHistory();
+loadLevelWalletHistory();
+</script>
+</body>
+</html>

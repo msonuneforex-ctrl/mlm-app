@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Level Income - MLM Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .level-card {
+    border-radius: 12px;
+    padding: 14px 10px 12px;
+    text-align: center;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    position: relative;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .level-card.unlocked {
+    border-color: var(--success);
+    background: rgba(0,200,120,0.07);
+  }
+  .level-card.next-to-unlock {
+    border-color: var(--accent);
+    background: rgba(100,130,255,0.08);
+    cursor: pointer;
+  }
+  .level-card.next-to-unlock:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 18px rgba(100,130,255,0.18);
+  }
+  .level-card.locked {
+    opacity: 0.55;
+  }
+  .level-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .level-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .level-status {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+  .badge-unlocked { background: rgba(0,200,120,0.15); color: var(--success); }
+  .badge-next     { background: rgba(100,130,255,0.18); color: var(--accent); }
+  .badge-locked   { background: rgba(255,255,255,0.06); color: var(--muted); }
+  .badge-no-biz   { background: rgba(255,160,50,0.12); color: var(--warning); }
+
+  .pct-chip {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+  .info-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .info-tile {
+    flex: 1;
+    min-width: 130px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .info-tile .val { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .info-tile .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Unlock modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 18px;
+    background: none; border: none;
+    color: var(--muted); font-size: 20px;
+    cursor: pointer;
+  }
+
+
+  .lock-icon { font-size: 28px; margin-bottom: 4px; }
+
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 4px; font-size: 12.5px;
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dot-green { background: var(--success); }
+  .dot-accent { background: var(--accent); }
+  .dot-grey  { background: var(--border); }
+</style>
+</head>
+<body>
+<div class="app-layout">
+<div id="sidebar-root"></div>
+<div class="main-content">
+<div class="page-header">
+  <h1>Level Income</h1>
+  <p>Unlock levels to receive income from your downline network — $20 per level, no fees.</p>
+</div>
+
+<!-- Summary tiles -->
+<div class="info-bar" id="infoBar">
+  <div class="info-tile"><div class="val" id="tileUnlocked">-</div><div class="lbl">Levels Unlocked</div></div>
+  <div class="info-tile"><div class="val" id="tileBusiness">-</div><div class="lbl">Business Depth</div></div>
+  <div class="info-tile"><div class="val" id="tileWallet">-</div><div class="lbl">Main Wallet</div></div>
+  <div class="info-tile"><div class="val" id="tileNext">-</div><div class="lbl">Next Level Cost</div></div>
+</div>
+
+<div class="panel" id="gridPanel">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <h3 style="margin:0">Your 25 Levels</h3>
+    <div class="legend">
+      <span><span class="dot dot-green"></span>Unlocked</span>
+      <span><span class="dot dot-accent"></span>Unlock Next</span>
+      <span><span class="dot dot-grey"></span>Locked</span>
+    </div>
+  </div>
+  <div class="level-grid" id="levelGrid"><p style="color:var(--muted)">Loading...</p></div>
+</div>
+
+
+
+</div><!-- .main-content -->
+</div>
+
+<!-- Unlock Modal -->
+<div class="modal-overlay" id="unlockModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="lock-icon">🔓</div>
+    <h3 id="modalTitle">Unlock Level X</h3>
+    <p style="color:var(--muted);font-size:13.5px;margin:6px 0 0">Cost: <strong style="color:var(--accent)">20 USDT</strong> &nbsp;·&nbsp; No platform fee</p>
+
+    <!-- Wallet payment -->
+    <div id="walletSection">
+      <div class="panel" style="background:rgba(255,255,255,0.03);padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">Main Wallet Balance</span>
+          <strong id="modalWalletBal">-</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">Level Unlock Cost</span>
+          <strong style="color:var(--accent)">20.00 USDT</strong>
+        </div>
+      </div>
+      <button class="btn-primary" id="btnWalletPay" onclick="payFromWallet()">Unlock Now — Deduct 20 USDT</button>
+    </div>
+
+    <div id="modalMsg" class="msg" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('level-income', 'user');
+
+const LEVEL_PERCENTAGES = [10,8,6,2,...Array(21).fill(1)];
+let pageData = null;
+
+// ---- Load page ----
+async function loadPage() {
+  try {
+    pageData = await apiRequest('/user/level-status');
+    renderTiles();
+    renderGrid();
+  } catch (err) {
+    document.getElementById('levelGrid').innerHTML = `<p style="color:var(--warning)">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderTiles() {
+  const d = pageData;
+  document.getElementById('tileUnlocked').textContent = `${d.unlockedCount} / 25`;
+  document.getElementById('tileBusiness').textContent = `${d.businessDepth} Level${d.businessDepth !== 1 ? 's' : ''}`;
+  document.getElementById('tileWallet').textContent = usdt(d.walletBalance);
+  const allDone = d.unlockedCount >= 25;
+  document.getElementById('tileNext').textContent = allDone ? 'All Unlocked ✓' : `${d.pricePerLevel} USDT`;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('levelGrid');
+  grid.innerHTML = pageData.levels.map(l => {
+    const pct = LEVEL_PERCENTAGES[l.level - 1];
+    let cls = 'level-card';
+    let badgeHtml = '';
+    let click = '';
+
+    if (l.unlocked) {
+      cls += ' unlocked';
+      badgeHtml = `<div class="level-status badge-unlocked">✓ Active</div>`;
+    } else if (l.nextToUnlock) {
+      cls += ' next-to-unlock';
+      badgeHtml = `<div class="level-status badge-next">Unlock →</div>`;
+      click = `onclick="openModal(${l.level})"`;
+    } else if (!l.hasBusiness) {
+      cls += ' locked';
+      badgeHtml = `<div class="level-status badge-no-biz">No Business</div>`;
+    } else {
+      cls += ' locked';
+      badgeHtml = `<div class="level-status badge-locked">🔒 Locked</div>`;
+    }
+
+    return `
+      <div class="${cls}" ${click} title="${l.unlocked ? 'Earning level income' : l.nextToUnlock ? 'Click to unlock' : 'Locked'}">
+        <div class="level-num">L${l.level}</div>
+        <div class="pct-chip">${pct}%</div>
+        ${badgeHtml}
+      </div>`;
+  }).join('');
+}
+
+// ---- Modal ----
+function openModal(level) {
+  document.getElementById('modalTitle').textContent = `Unlock Level ${level}`;
+  document.getElementById('modalWalletBal').textContent = usdt(pageData.walletBalance);
+  document.getElementById('modalMsg').textContent = '';
+  document.getElementById('modalMsg').className = 'msg';
+  document.getElementById('unlockModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('unlockModal').classList.remove('open');
+}
+
+async function payFromWallet() {
+  const btn = document.getElementById('btnWalletPay');
+  const msg = document.getElementById('modalMsg');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  msg.textContent = '';
+  msg.className = 'msg';
+  try {
+    const res = await apiRequest('/user/level-unlock/wallet', 'POST');
+    msg.className = 'msg success';
+    msg.textContent = res.message;
+    await loadPage();
+    setTimeout(closeModal, 1800);
+  } catch (err) {
+    msg.className = 'msg error';
+    msg.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Unlock Now — Deduct 20 USDT';
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('unlockModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+loadPage();
+</script>
+</body>
+</html>

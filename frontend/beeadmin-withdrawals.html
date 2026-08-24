@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Withdrawals - Bee AI Verse Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Withdrawal Requests</h1>
+      <p>Approve pending requests → they move to Processing → then bulk-mark as Processed.</p>
+    </div>
+
+    <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="withdrawalSearch" placeholder="Filter by User ID, name, or email…" style="flex:1;min-width:220px;margin:0" />
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-primary tab-btn active" data-status="pending"    onclick="setTab('pending')">⏳ Pending</button>
+        <button class="btn-primary tab-btn" data-status="processing"        onclick="setTab('processing')" style="background:rgba(100,160,255,0.15);color:#60aaff;border-color:#60aaff">🔄 Processing</button>
+        <button class="btn-primary tab-btn" data-status="processed"         onclick="setTab('processed')" style="background:rgba(53,214,143,0.12);color:var(--success);border-color:var(--success)">✓ Processed</button>
+        <button class="btn-primary tab-btn" data-status="rejected"          onclick="setTab('rejected')" style="background:rgba(255,92,122,0.12);color:var(--danger);border-color:var(--danger)">✗ Rejected</button>
+        <button class="btn-primary tab-btn" data-status=""                  onclick="setTab('')">All</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <span id="rowCount" style="font-size:12px;color:var(--muted)"></span>
+        <a href="beeadmin-processing-withdrawals.html" class="btn-primary" style="font-size:13px;padding:7px 16px;text-decoration:none">🔄 Bulk Process Withdrawals →</a>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>User ID</th><th>User</th><th>Gross</th><th>Fee</th><th>Net Payout</th><th>Method / Network</th><th>Address</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="withdrawalsBody"><tr><td colspan="10">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('withdrawals', 'admin');
+
+let allWithdrawals = [];
+let currentTab = 'pending';
+
+function setTab(status) {
+  currentTab = status;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.status === status));
+  applyFilter();
+}
+
+function applyFilter() {
+  const q = document.getElementById('withdrawalSearch').value.trim().toLowerCase();
+  let rows = allWithdrawals;
+  if (currentTab) rows = rows.filter(w => w.status === currentTab);
+  if (q) rows = rows.filter(w =>
+    (w.user_code || '').toLowerCase().includes(q) ||
+    (w.user_name || '').toLowerCase().includes(q) ||
+    (w.user_email || '').toLowerCase().includes(q)
+  );
+  renderWithdrawals(rows);
+}
+
+function renderWithdrawals(rows) {
+  document.getElementById('rowCount').textContent = `${rows.length} record${rows.length !== 1 ? 's' : ''}`;
+  document.getElementById('withdrawalsBody').innerHTML = rows.map(w => {
+    const net = w.net_amount ? usdt(w.net_amount) : '—';
+    const fee = w.fee_amount ? usdt(w.fee_amount) : '—';
+    const addr = w.network === 'BEP20' ? (w.withdrawal_address_bep20 || w.account_details || '-')
+               : w.network === 'TRC20' ? (w.withdrawal_address_trc20 || w.account_details || '-')
+               : (w.account_details || '-');
+    const addrShort = addr.length > 18 ? `<span title="${escapeHtml(addr)}" style="cursor:help">${escapeHtml(addr.substring(0,16))}…</span>` : escapeHtml(addr);
+
+    let action = w.remarks || '-';
+    if (w.status === 'pending') {
+      action = `<button class="btn-small btn-success" onclick="approveWithdrawal(${w.id})">Approve</button>
+                <button class="btn-small btn-danger"  onclick="rejectWithdrawal(${w.id})" style="margin-left:4px">Reject</button>`;
+    }
+
+    return `<tr>
+      <td style="font-size:12px">${new Date(w.created_at).toLocaleString()}</td>
+      <td><a href="beeadmin-user-transactions.html?id=${w.user_id}" style="color:var(--ice);font-weight:700;text-decoration:none">${w.user_code || '-'}</a></td>
+      <td>${escapeHtml(w.user_name)}<br><small style="color:var(--text-dim)">${escapeHtml(w.user_email)}</small></td>
+      <td><strong>${usdt(w.amount)}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${fee}</td>
+      <td style="color:var(--success)">${net}</td>
+      <td>${escapeHtml(w.method || '-')}<br><small style="color:var(--text-dim)">${w.network || ''}</small></td>
+      <td style="font-size:12px;color:var(--text-dim)">${addrShort}</td>
+      <td><span class="badge ${w.status}">${w.status}</span></td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="color:var(--muted)">No records</td></tr>';
+  replayMotion('#withdrawalsBody');
+}
+
+document.getElementById('withdrawalSearch').addEventListener('input', applyFilter);
+
+async function loadWithdrawals() {
+  allWithdrawals = await apiRequest('/admin/withdrawals');
+  applyFilter();
+}
+
+async function approveWithdrawal(id) {
+  if (!confirm('Move this withdrawal to Processing? Fee will be deducted now.')) return;
+  try {
+    const res = await apiRequest(`/admin/withdrawals/${id}/approve`, 'PUT');
+    toast(res.message);
+    loadWithdrawals();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function rejectWithdrawal(id) {
+  if (!confirm('Reject this withdrawal? Amount will be refunded to the user.')) return;
+  try {
+    const res = await apiRequest(`/admin/withdrawals/${id}/reject`, 'PUT');
+    toast(res.message || 'Rejected');
+    loadWithdrawals();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+loadWithdrawals();
+</script>
+</body>
+</html>

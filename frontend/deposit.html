@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Deposit - MLM Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  .qr-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 0 8px 0;
+  }
+  .qr-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+    min-width: 160px;
+    min-height: 160px;
+  }
+  .qr-box canvas, .qr-box img { display: block; border-radius: 4px; }
+  .qr-network-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #f0b90b;
+    background: rgba(240,185,11,0.12);
+    border: 1px solid rgba(240,185,11,0.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+  .qr-network-badge::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f0b90b;
+  }
+  .addr-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    border-radius: 8px;
+    padding: 10px 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .addr-display .addr-text {
+    flex: 1;
+    font-size: 12px;
+    font-family: monospace;
+    word-break: break-all;
+    color: var(--text, #e2e8f0);
+    line-height: 1.5;
+  }
+  .copy-btn {
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    border-radius: 6px;
+    color: var(--muted, #94a3b8);
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 12px;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.14); color: var(--text, #e2e8f0); }
+  .copy-btn.copied { color: #22c55e; border-color: rgba(34,197,94,0.4); }
+  .qr-placeholder {
+    width: 160px; height: 160px;
+    display: flex; align-items: center; justify-content: center;
+    color: #aaa; font-size: 13px;
+  }
+</style>
+<body>
+<div class="app-layout">
+<div id="sidebar-root"></div>
+<div class="main-content">
+<div class="page-header">
+  <h1>Deposit</h1>
+  <p>Add funds to your wallet.</p>
+</div>
+<div class="grid-2">
+  <div class="panel">
+    <h3>New Deposit Request</h3>
+
+    <label>Network</label>
+    <div class="net-toggle" id="depNetToggle">
+      <div class="net-pill active" data-net="BEP20">USDT · BEP20</div>
+    </div>
+
+    <div class="addr-card">
+      <div class="net-label">Send USDT to this address</div>
+
+      <!-- QR Code Section -->
+      <div class="qr-wrapper" id="qrSection" style="display:none">
+        <div class="qr-network-badge" id="qrNetworkBadge">USDT · BEP20</div>
+        <div class="qr-box">
+          <div id="qrCanvas"></div>
+        </div>
+        <div class="addr-display">
+          <span class="addr-text" id="depositAddress">Loading...</span>
+          <button class="copy-btn" id="copyAddrBtn" title="Copy address">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading / not-configured state -->
+      <div id="addrFallback">
+        <div class="addr-value" style="color:var(--muted);font-size:13px;padding:8px 0">Loading address…</div>
+      </div>
+
+      <div class="empty-hint" style="margin-top:8px">⚠️ Only send USDT on the BEP20 (BSC) network. Sending on the wrong network will result in permanent loss of funds.</div>
+    </div>
+
+    <form id="depositForm">
+      <label>Amount Sent (USDT)</label>
+      <input type="number" id="amount" min="1" step="0.01" required />
+
+      <label>Transaction Hash</label>
+      <input type="text" id="txn_ref" placeholder="Paste the on-chain transaction hash" required />
+
+      <div class="panel" style="background:rgba(255,255,255,0.03);margin:6px 0 18px 0;padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">You Sent</span><strong id="feeTotal">0.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0">
+          <span style="color:var(--muted)">Referral Fee (5%)</span><strong id="feeFee" style="color:var(--warning)">0.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0;border-top:1px solid var(--border);margin-top:6px;padding-top:10px">
+          <span style="color:var(--muted)">Credited to Wallet</span><strong id="feeNet" style="color:var(--success)">0.00 USDT</strong>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary">Submit Deposit Request</button>
+    </form>
+    <div id="msg" class="msg"></div>
+    <p style="font-size:13px;color:var(--muted);margin-top:10px">
+      Deposits are credited to your wallet only after admin approval. A 5% referral fee is deducted from every deposit.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3>Deposit History</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Sent</th><th>Platform Fee</th><th>Credited</th><th>Network</th><th>Tx Hash</th><th>Status</th></tr></thead>
+      <tbody id="historyBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('deposit', 'user');
+
+let selectedNet = 'BEP20';
+
+document.getElementById('depNetToggle').addEventListener('click', (e) => {
+  const pill = e.target.closest('.net-pill');
+  if (!pill) return;
+  document.querySelectorAll('#depNetToggle .net-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  selectedNet = pill.dataset.net;
+  loadDepositAddress();
+});
+
+let qrInstance = null;
+
+async function loadDepositAddress() {
+  const addrEl = document.getElementById('depositAddress');
+  const qrSection = document.getElementById('qrSection');
+  const addrFallback = document.getElementById('addrFallback');
+  const qrCanvas = document.getElementById('qrCanvas');
+  const badge = document.getElementById('qrNetworkBadge');
+
+  addrEl.textContent = 'Loading...';
+  qrSection.style.display = 'none';
+  addrFallback.style.display = 'block';
+
+  try {
+    const res = await apiRequest(`/user/deposit-address?network=${selectedNet}`);
+
+    if (res.address) {
+      addrEl.textContent = res.address;
+      badge.textContent = `USDT · ${selectedNet}`;
+
+      // Clear previous QR
+      qrCanvas.innerHTML = '';
+      if (qrInstance) { try { qrInstance.clear(); } catch(e){} }
+
+      qrInstance = new QRCode(qrCanvas, {
+        text: res.address,
+        width: 160,
+        height: 160,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      qrSection.style.display = 'flex';
+      addrFallback.style.display = 'none';
+    } else {
+      addrFallback.innerHTML = '<div class="addr-value"><span class="empty-hint">Deposit address not configured yet — contact support.</span></div>';
+      qrSection.style.display = 'none';
+      addrFallback.style.display = 'block';
+    }
+  } catch (err) {
+    addrFallback.innerHTML = '<div class="addr-value"><span class="empty-hint">Unable to load address. Please refresh.</span></div>';
+    qrSection.style.display = 'none';
+    addrFallback.style.display = 'block';
+  }
+}
+
+// Copy address to clipboard
+document.getElementById('copyAddrBtn').addEventListener('click', () => {
+  const addr = document.getElementById('depositAddress').textContent.trim();
+  if (!addr || addr === 'Loading...') return;
+  navigator.clipboard.writeText(addr).then(() => {
+    const btn = document.getElementById('copyAddrBtn');
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  }).catch(() => toast('Could not copy — please copy manually.', 'error'));
+});
+
+function updateFeePreview() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const fee = Math.round(amount * 0.05 * 100) / 100;
+  const net = Math.round((amount - fee) * 100) / 100;
+  document.getElementById('feeTotal').textContent = usdt(amount);
+  document.getElementById('feeFee').textContent = usdt(fee);
+  document.getElementById('feeNet').textContent = usdt(net);
+}
+document.getElementById('amount').addEventListener('input', updateFeePreview);
+
+async function loadHistory() {
+  try {
+    const rows = await apiRequest('/user/deposit/history');
+    const tbody = document.getElementById('historyBody');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7">No deposits yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td>${usdt(r.amount)}</td>
+        <td>${usdt(r.fee_amount || 0)}</td>
+        <td>${usdt(r.net_amount || 0)}</td>
+        <td>${r.network || '-'}</td>
+        <td style="font-size:12px;color:var(--text-dim)">${r.txn_ref || '-'}</td>
+        <td><span class="badge ${r.status}">${r.status}</span></td>
+      </tr>
+    `).join('');
+    replayMotion('#historyBody');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById('depositForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = ''; msg.className = 'msg';
+
+  try {
+    const res = await apiRequest('/user/deposit', 'POST', {
+      amount: parseFloat(document.getElementById('amount').value),
+      network: selectedNet,
+      txn_ref: document.getElementById('txn_ref').value
+    });
+    msg.textContent = res.message;
+    msg.className = 'msg success';
+    toast(res.message, 'success');
+    document.getElementById('depositForm').reset();
+    loadHistory();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+    toast(err.message, 'error');
+  }
+});
+
+loadDepositAddress();
+loadHistory();
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Business Overview - Bee AI Verse</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Business Overview</h1>
+      <p>Total left/right leg business platform-wide, or look up any one user.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Platform-Wide Leg Business</h3>
+      <p style="font-size:13px;color:var(--muted);margin-top:-6px" id="rootLabel">Loading...</p>
+      <div class="grid-2" style="margin-top:10px">
+        <div class="stat-card"><div class="label">Left Leg Business</div><div class="value" id="platLeftBiz">—</div><div class="label" style="margin-top:4px" id="platLeftCount"></div></div>
+        <div class="stat-card"><div class="label">Right Leg Business</div><div class="value" id="platRightBiz">—</div><div class="label" style="margin-top:4px" id="platRightCount"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Find a User</h3>
+      <p style="font-size:13px;color:var(--muted);margin-top:-6px">Search by code, name, email, or phone, then check their leg-wise business.</p>
+      <input type="text" id="searchInput" placeholder="Search users..." style="margin-top:10px" />
+      <div id="searchResults" style="margin-top:12px"></div>
+    </div>
+
+    <div class="panel" id="detailPanel" style="display:none">
+      <h3 id="detailTitle">User Business</h3>
+      <div class="grid-2" style="margin-top:10px">
+        <div class="stat-card"><div class="label">Left Leg Business</div><div class="value" id="userLeftBiz">—</div><div class="label" style="margin-top:4px" id="userLeftCount"></div></div>
+        <div class="stat-card"><div class="label">Right Leg Business</div><div class="value" id="userRightBiz">—</div><div class="label" style="margin-top:4px" id="userRightCount"></div></div>
+      </div>
+      <div class="stat-card" style="margin-top:16px"><div class="label">This User's Own Approved Deposits</div><div class="value" id="userOwnBiz">—</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('business', 'admin');
+
+async function loadOverview() {
+  const data = await apiRequest('/admin/business-overview');
+  document.getElementById('rootLabel').textContent = data.root
+    ? `Rooted at ${data.root.user_code} — ${data.root.name} (first user placed in the tree)`
+    : 'No users placed yet.';
+  document.getElementById('platLeftBiz').textContent = usdt(data.left.business);
+  document.getElementById('platLeftCount').textContent = `${data.left.count} member(s)`;
+  document.getElementById('platRightBiz').textContent = usdt(data.right.business);
+  document.getElementById('platRightCount').textContent = `${data.right.count} member(s)`;
+}
+
+let searchTimer = null;
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (!q) { document.getElementById('searchResults').innerHTML = ''; return; }
+  searchTimer = setTimeout(() => runSearch(q), 300);
+});
+
+async function runSearch(q) {
+  const results = document.getElementById('searchResults');
+  results.innerHTML = '<p class="msg">Searching...</p>';
+  try {
+    const rows = await apiRequest(`/admin/users/search?q=${encodeURIComponent(q)}`);
+    if (!rows.length) { results.innerHTML = '<p class="msg">No matching users</p>'; return; }
+    results.innerHTML = `
+      <table>
+        <thead><tr><th>Code</th><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(u => `
+            <tr>
+              <td>${escapeHtml(u.user_code)}</td>
+              <td>${escapeHtml(u.name)}</td>
+              <td style="font-size:12.5px;color:var(--text-dim)">${escapeHtml(u.email)}</td>
+              <td><span class="gen-status ${u.status === 'active' ? 'active' : 'inactive'}">${escapeHtml(u.status)}</span></td>
+              <td><button class="btn-primary" style="padding:6px 14px;font-size:12.5px" onclick="viewBusiness(${u.id})">Check Business</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    results.innerHTML = `<p class="msg error">${err.message}</p>`;
+  }
+}
+
+async function viewBusiness(id) {
+  const data = await apiRequest(`/admin/users/${id}/business`);
+  document.getElementById('detailPanel').style.display = 'block';
+  document.getElementById('detailTitle').textContent = `${data.user.user_code} — ${data.user.name}`;
+  document.getElementById('userLeftBiz').textContent = usdt(data.left.business);
+  document.getElementById('userLeftCount').textContent = `${data.left.count} member(s)`;
+  document.getElementById('userRightBiz').textContent = usdt(data.right.business);
+  document.getElementById('userRightCount').textContent = `${data.right.count} member(s)`;
+  document.getElementById('userOwnBiz').textContent = usdt(data.ownDeposits);
+  document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+loadOverview();
+</script>
+</body>
+</html>

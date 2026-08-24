@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Admin - Security</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Admin Security</h1>
+      <p>Control which networks may reach the admin panel, and manage your own 2FA.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Admin Panel IP Allowlist</h3>
+      <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin-top:-6px">
+        Only requests from these IP addresses can reach any admin page or API (enforced in production).
+        Up to 5 addresses. Leave a slot blank to disable it. Your current IP is shown below — add it if it's
+        not already listed, or you may lock yourself out.
+      </p>
+
+      <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-top:10px;font-size:13px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span style="color:var(--muted)">
+            Your IP as seen by the server: <strong id="yourIp" style="color:var(--ice)">—</strong>
+          </span>
+          <button onclick="checkMyIp()" style="padding:5px 12px;border-radius:5px;background:var(--bg-card);color:var(--text-dim);border:1px solid var(--border);cursor:pointer;font-size:12px">
+            🔄 Re-check IP
+          </button>
+        </div>
+        <div id="ipWarning" style="display:none;margin-top:8px;color:#f5a623;font-size:12px">
+          ⚠️ Your current IP is <strong>not</strong> in the allowlist. Save it below before enabling restriction, or you will be locked out.
+        </div>
+      </div>
+
+      <form id="ipForm" style="margin-top:14px">
+        <div id="ipInputs"></div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer">
+          <input type="checkbox" id="restrictionEnabled" style="width:auto" />
+          <span style="font-size:13.5px;color:var(--muted)">Enforce IP allowlist (turn off only for emergency access recovery)</span>
+        </label>
+
+        <button type="submit" class="btn-primary" style="margin-top:16px">Save Allowlist</button>
+      </form>
+      <div id="ipMsg" class="msg"></div>
+    </div>
+
+    <div class="panel" style="margin-top:20px">
+      <h3>Two-Factor Authentication</h3>
+      <p id="tfaStatus" style="color:var(--text-dim);font-size:13px">Checking status...</p>
+      <a id="tfaSetupLink" href="setup-2fa.html" class="btn-primary" style="display:none;text-decoration:none;width:fit-content;padding:10px 20px;margin-top:8px">Set Up 2FA</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('security', 'admin');
+
+let _currentAllowedIps = [];
+
+function renderIpInputs(ips) {
+  const wrap = document.getElementById('ipInputs');
+  wrap.innerHTML = ips.map((ip, i) => `
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px">IP Address ${i + 1}</label>
+      <input type="text" class="ip-slot" data-idx="${i}" value="${escapeHtml(ip || '')}" placeholder="e.g. 103.123.79.96"
+        style="width:100%;padding:10px;border-radius:6px;background:var(--bg-dark);color:#fff;border:1px solid var(--border)" />
+    </div>
+  `).join('');
+}
+
+function updateIpWarning(currentIp, allowedIps) {
+  const warn = document.getElementById('ipWarning');
+  const restrictionOn = document.getElementById('restrictionEnabled').checked;
+  if (restrictionOn && currentIp && allowedIps.length > 0 && !allowedIps.includes(currentIp)) {
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+async function checkMyIp() {
+  try {
+    // Use the public /api/my-ip endpoint — works even before login since it has no auth
+    const res = await fetch('/api/my-ip');
+    const data = await res.json();
+    const ip = data.ip || 'unknown';
+    document.getElementById('yourIp').textContent = ip;
+    updateIpWarning(ip, _currentAllowedIps);
+    return ip;
+  } catch (err) {
+    document.getElementById('yourIp').textContent = 'error';
+  }
+}
+
+async function loadWhitelist() {
+  try {
+    const data = await apiRequest('/admin/security/ip-whitelist');
+    _currentAllowedIps = (data.ips || []).filter(Boolean);
+    renderIpInputs(data.ips);
+    document.getElementById('restrictionEnabled').checked = data.restrictionEnabled;
+    document.getElementById('yourIp').textContent = data.yourIp || '—';
+    updateIpWarning(data.yourIp, _currentAllowedIps);
+
+    // Re-wire the warning when restriction toggle changes
+    document.getElementById('restrictionEnabled').addEventListener('change', () => {
+      const cur = document.getElementById('yourIp').textContent;
+      updateIpWarning(cur, _currentAllowedIps);
+    });
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+document.getElementById('ipForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('ipMsg');
+  msg.textContent = ''; msg.className = 'msg';
+  const ips = Array.from(document.querySelectorAll('.ip-slot')).map(el => el.value.trim());
+  try {
+    const res = await apiRequest('/admin/security/ip-whitelist', 'PUT', {
+      ips,
+      restrictionEnabled: document.getElementById('restrictionEnabled').checked
+    });
+    _currentAllowedIps = (res.ips || []).filter(Boolean);
+    renderIpInputs(res.ips.concat(Array(5 - res.ips.length).fill('')));
+    const cur = document.getElementById('yourIp').textContent;
+    updateIpWarning(cur, _currentAllowedIps);
+    msg.textContent = res.message;
+    msg.className = 'msg success';
+    toast(res.message, 'success');
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+    toast(err.message, 'error');
+  }
+});
+
+async function loadTfaStatus() {
+  try {
+    const data = await apiRequest('/user/2fa/status');
+    const statusEl = document.getElementById('tfaStatus');
+    const linkEl = document.getElementById('tfaSetupLink');
+    if (data.enabled) {
+      statusEl.textContent = '2FA is enabled on this admin account.';
+      linkEl.style.display = 'none';
+    } else {
+      statusEl.textContent = '2FA is not enabled yet.';
+      linkEl.style.display = 'inline-block';
+    }
+  } catch (err) {
+    document.getElementById('tfaStatus').textContent = err.message;
+  }
+}
+
+loadWhitelist();
+loadTfaStatus();
+</script>
+</body>
+</html>

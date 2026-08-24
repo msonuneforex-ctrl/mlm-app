@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Admin - User Management</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>User Management</h1>
+      <p>Manage members, adjust wallet balances, and track network statuses.</p>
+    </div>
+
+    <!-- BALANCE ADJUSTMENT PANEL -->
+    <div class="panel">
+      <h3>Adjust Wallet Balances (Single or Bulk)</h3>
+      <p style="color:var(--text-dim);font-size:13.5px;margin-bottom:15px">
+        Apply percentage profit boosts to individual members or all non-admin users (main wallet only).
+      </p>
+      <form id="adjustBalanceForm" onsubmit="handleBalanceAdjustment(event)">
+        <div class="grid-2">
+          <div>
+            <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Target User</label>
+            <select id="adjustTargetUser" required style="width:100%;padding:10px;border-radius:6px;background:var(--bg-dark);color:#fff;border:1px solid var(--border)">
+              <option value="all">All Non-Admin Users</option>
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px">Percentage Profit (%)</label>
+            <input 
+              type="number" 
+              id="adjustValue" 
+              step="any" 
+              placeholder="e.g. 10 for 10% profit" 
+              required 
+              style="width:100%;padding:10px;border-radius:6px;background:var(--bg-dark);color:#fff;border:1px solid var(--border)"
+            />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:18px;padding:10px 20px">
+          Apply Adjustment
+        </button>
+      </form>
+      <div id="adjustMsg" class="msg" style="margin-top:10px"></div>
+    </div>
+
+    <!-- ALL USERS TABLE -->
+    <div class="panel" style="margin-top:20px">
+      <h3>All Members</h3>
+      <div style="overflow-x:auto;margin-top:15px">
+        <table style="width:100%;text-align:left;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:13px">
+              <th style="padding:10px">ID / Code</th>
+              <th style="padding:10px">Name & Email</th>
+              <th style="padding:10px">Sponsor</th>
+              <th style="padding:10px">Main Wallet</th>
+              <th style="padding:10px">Referral Wallet</th>
+              <th style="padding:10px">Total Balance</th>
+              <th style="padding:10px">Earning Cap</th>
+              <th style="padding:10px">Status</th>
+              <th style="padding:10px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/admin.js"></script>
+<script>
+requireAuth();
+renderSidebar('admin-users', 'admin');
+
+loadAdminUsers();
+</script>
+</body>
+</html>

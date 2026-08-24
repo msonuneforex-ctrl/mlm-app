@@ -1,0 +1,8 @@
+{
+  "name": "mlm-app",
+  "version": "1.0.0",
+  "scripts": {
+    "install": "cd backend && npm install",
+    "start": "cd backend && node server.js"
+  }
+}

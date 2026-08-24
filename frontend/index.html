@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Bee AI Verse — AI Trading, Bots & the BAV Ecosystem</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Bee AI Verse — AI Projects, AI Trading Bots, AI Trading Indicators, the upcoming BAV Coin, and the Bee Gaming Platform." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div class="navbar">
+  <div class="brand">Bee AI Verse</div>
+</div>
+
+<div class="hero">
+  <div class="tag">🐝 AI PROJECTS · TRADING BOTS · TRADING INDICATORS</div>
+  <h1>AI-powered tools.<br>Real trading edge.</h1>
+  <p>Bee AI Verse builds AI trading bots and AI trading indicators for real markets — with our own BAV Coin and Bee Gaming Platform coming soon to power the whole ecosystem.</p>
+  <div class="hero-buttons">
+    <button class="btn-primary" style="width:auto" onclick="window.location.href='register.html'">Get Started</button>
+  </div>
+  <div class="hive-scene" aria-hidden="false">
+    <svg viewBox="0 0 320 120" class="hive-svg" role="img" aria-label="A bee flying over a honeycomb collecting honey">
+      <g class="comb" fill="none" stroke="#E8A93A" stroke-width="2" opacity="0.55">
+        <polygon points="30,10 46,19 46,37 30,46 14,37 14,19"/>
+        <polygon points="62,10 78,19 78,37 62,46 46,37 46,19"/>
+        <polygon points="94,10 110,19 110,37 94,46 78,37 78,19"/>
+        <polygon points="46,37 62,46 62,64 46,73 30,64 30,46"/>
+        <polygon points="78,37 94,46 94,64 78,73 62,64 62,46"/>
+        <polygon points="110,37 126,46 126,64 110,73 94,64 94,46"/>
+      </g>
+      <g class="drip">
+        <path d="M78 46 q0 14 0 20 q0 8 6 8 q6 0 6 -8 q0 -6 -6 -20 z" fill="#F0B429"/>
+      </g>
+      <g class="bee">
+        <ellipse cx="0" cy="0" rx="12" ry="8" fill="#2B2B2B"/>
+        <path d="M-12 0 a12 8 0 0 1 24 0" fill="#F5C518"/>
+        <path d="M-6 -6 L2 -6 M-4 0 L4 0 M-2 6 L6 6" stroke="#2B2B2B" stroke-width="2" fill="none"/>
+        <ellipse class="wing wing-l" cx="-4" cy="-9" rx="8" ry="5" fill="#FFFFFF" opacity="0.75"/>
+        <ellipse class="wing wing-r" cx="6" cy="-9" rx="8" ry="5" fill="#FFFFFF" opacity="0.75"/>
+      </g>
+    </svg>
+  </div>
+  <a href="login.html" class="btn-enter-hive">🍯 Enter the Hive</a>
+</div>
+
+<style>
+  .hive-scene { display:flex; justify-content:center; margin-top:20px; }
+  .hive-svg { width:260px; height:auto; overflow:visible; }
+  .bee { transform-box: fill-box; transform-origin:center; animation: bee-fly 4.5s ease-in-out infinite; }
+  @keyframes bee-fly {
+    0%   { transform: translate(20px,60px) scale(0.9); }
+    25%  { transform: translate(90px,20px) scale(1); }
+    50%  { transform: translate(160px,55px) scale(0.95); }
+    75%  { transform: translate(230px,15px) scale(1); }
+    100% { transform: translate(20px,60px) scale(0.9); }
+  }
+  .wing { animation: wing-buzz 0.15s ease-in-out infinite alternate; transform-box: fill-box; transform-origin:center; }
+  .wing-r { animation-delay: 0.05s; }
+  @keyframes wing-buzz { from { transform: scaleY(1); } to { transform: scaleY(0.55); } }
+  .drip { animation: drip-pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin:top center; }
+  @keyframes drip-pulse { 0%,100% { transform: scaleY(1); opacity:0.9; } 50% { transform: scaleY(1.15); opacity:1; } }
+  .btn-enter-hive {
+    display:inline-block;
+    margin-top:18px;
+    padding:10px 28px;
+    border-radius:999px;
+    background:linear-gradient(135deg,#F5C518,#E8A93A);
+    color:#2B2B2B;
+    font-weight:600;
+    text-decoration:none;
+    box-shadow:0 4px 14px rgba(232,169,58,0.35);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-enter-hive:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(232,169,58,0.5); }
+</style>
+
+<div class="feature-grid" id="projects">
+  <div class="feature-card">
+    <span class="icon">🤖</span>
+    <h4>AI Projects</h4>
+    <p>Applied AI systems built to solve real problems — from data analysis to automation, forming the backbone of the Bee AI Verse ecosystem.</p>
+  </div>
+  <div class="feature-card">
+    <span class="icon">📈</span>
+    <h4>AI Trading Bots</h4>
+    <p>Automated bots that analyze markets and execute strategies around the clock, removing emotion and guesswork from trading.</p>
+  </div>
+  <div class="feature-card">
+    <span class="icon">📊</span>
+    <h4>AI Trading Indicators</h4>
+    <p>Smart, data-driven indicators that help you spot trends and entry/exit points with greater precision and confidence.</p>
+  </div>
+  <div class="feature-card">
+    <span class="icon">🪙</span>
+    <h4>BAV Coin <span style="font-size:0.7em; opacity:0.7;">(Coming Soon)</span></h4>
+    <p>Our native coin, built to be used for monthly or yearly rentals of our AI trading bots, indicators, and other Bee AI Verse products.</p>
+  </div>
+  <div class="feature-card">
+    <span class="icon">🎮</span>
+    <h4>Bee Gaming Platform <span style="font-size:0.7em; opacity:0.7;">(Coming Soon)</span></h4>
+    <p>An upcoming gaming platform integrated into the Bee AI Verse ecosystem, powered by BAV Coin.</p>
+  </div>
+  <div class="feature-card">
+    <span class="icon">⬡</span>
+    <h4>One Dashboard</h4>
+    <p>Manage your wallet, rentals, and transaction history in real time — everything in a single, clean dashboard.</p>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  const u = getUser();
+  if (getToken() && u) {
+    window.location.href = u.role === 'admin' ? 'beeadmin-dashboard.html' : 'dashboard.html';
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Reports - Bee AI Verse Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Reports</h1>
+      <p>Growth and financial trends across the platform.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Monthly Deposits (Approved)</h3>
+        <div class="bar-chart" id="depositsChart"></div>
+      </div>
+      <div class="panel">
+        <h3>Monthly Withdrawals (Approved)</h3>
+        <div class="bar-chart" id="withdrawalsChart"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>New User Signups</h3>
+        <div class="bar-chart" id="growthChart"></div>
+      </div>
+      <div class="panel">
+        <h3>Left vs Right Leg Split</h3>
+        <div class="bar-chart" id="legChart"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Top Wallet Balances</h3>
+      <div class="mini-table-title">Top 5 members by current wallet balance</div>
+      <table>
+        <thead><tr><th>Rank</th><th>User ID</th><th>Name</th><th>Email</th><th>Balance</th></tr></thead>
+        <tbody id="topWalletsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('reports', 'admin');
+
+function renderBarChart(containerId, items, formatValue) {
+  const max = Math.max(...items.map(i => i.value), 1);
+  document.getElementById(containerId).innerHTML = items.map(i => `
+    <div class="bar-col">
+      <div class="bar-value">${formatValue(i.value)}</div>
+      <div class="bar-fill" style="height:${Math.max((i.value / max) * 100, 3)}%"></div>
+      <div class="bar-label">${i.label}</div>
+    </div>
+  `).join('') || '<p style="color:var(--text-dim);font-size:13px">No data yet</p>';
+}
+
+function monthLabel(ym) {
+  if (!ym) return '-';
+  const [y, m] = ym.split('-');
+  return new Date(y, m - 1).toLocaleString('default', { month: 'short' });
+}
+
+async function loadReports() {
+  try {
+    const r = await apiRequest('/admin/reports');
+
+    renderBarChart('depositsChart',
+      r.monthlyDeposits.map(d => ({ label: monthLabel(d.month), value: d.total })),
+      v => `${v.toFixed(0)} USDT`);
+
+    renderBarChart('withdrawalsChart',
+      r.monthlyWithdrawals.map(d => ({ label: monthLabel(d.month), value: d.total })),
+      v => `${v.toFixed(0)} USDT`);
+
+    renderBarChart('growthChart',
+      r.userGrowth.map(d => ({ label: monthLabel(d.month), value: d.count })),
+      v => `${v}`);
+
+    const left = r.leftRightSplit.find(x => x.position === 'L')?.count || 0;
+    const right = r.leftRightSplit.find(x => x.position === 'R')?.count || 0;
+    renderBarChart('legChart',
+      [{ label: 'Left', value: left }, { label: 'Right', value: right }],
+      v => `${v}`);
+
+    document.getElementById('topWalletsBody').innerHTML = r.topWallets.map((w, i) => `
+      <tr>
+        <td><span class="rank-badge">${i + 1}</span></td>
+        <td><a href="beeadmin-user-transactions.html?id=${w.id}" style="color:var(--ice);font-weight:700;text-decoration:none">${escapeHtml(w.user_code)}</a></td>
+        <td>${escapeHtml(w.name)}</td>
+        <td>${escapeHtml(w.email)}</td>
+        <td>${usdt(w.wallet_balance)}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5">No data yet</td></tr>';
+    replayMotion('#topWalletsBody');
+  } catch (err) {
+    console.error(err);
+  }
+}
+loadReports();
+</script>
+</body>
+</html>

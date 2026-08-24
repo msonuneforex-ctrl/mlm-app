@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Bulk Process Withdrawals - Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: rgba(100,160,255,0.07);
+    border: 1.5px solid rgba(100,160,255,0.25);
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .bulk-bar .count { font-weight: 700; color: #60aaff; font-size: 14px; flex: 1; }
+  .select-col { width: 36px; text-align: center; }
+  input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+  tr.selected td { background: rgba(100,160,255,0.06); }
+  .addr-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-dim); }
+  .summary-tile {
+    flex: 1; min-width: 130px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .summary-tile .val { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .summary-tile .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+
+    <div class="page-header">
+      <h1>Bulk Process Withdrawals</h1>
+      <p>All withdrawals in <strong style="color:#60aaff">Processing</strong> state are listed here. Select the ones you've paid out and mark them as Processed in one click.</p>
+    </div>
+
+    <!-- Summary tiles -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px" id="summaryBar">
+      <div class="summary-tile"><div class="val" id="tilePending">—</div><div class="lbl">In Processing</div></div>
+      <div class="summary-tile"><div class="val" id="tileSelectedCount">0</div><div class="lbl">Selected</div></div>
+      <div class="summary-tile"><div class="val" id="tileSelectedAmt">0.00 USDT</div><div class="lbl">Selected Net Total</div></div>
+    </div>
+
+    <!-- Bulk action bar -->
+    <div class="bulk-bar" id="bulkBar">
+      <span class="count" id="bulkCount">0 selected</span>
+      <button class="btn-primary" onclick="selectAll()" style="padding:7px 14px;font-size:13px">☑ Select All</button>
+      <button class="btn-primary" onclick="deselectAll()" style="padding:7px 14px;font-size:13px;background:rgba(255,255,255,0.06);color:var(--muted);border-color:var(--border)">☐ Deselect All</button>
+      <button class="btn-primary" id="btnMarkProcessed" onclick="markProcessed()"
+        style="padding:7px 18px;font-size:13px;background:rgba(53,214,143,0.15);color:var(--success);border-color:var(--success)"
+        disabled>✓ Mark Selected as Processed</button>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th class="select-col"><input type="checkbox" id="masterCheck" onchange="toggleAll(this.checked)" /></th>
+            <th>User</th>
+            <th>Gross</th>
+            <th>Net Payout</th>
+            <th>Network</th>
+            <th>Payout Address</th>
+            <th>Approved On</th>
+          </tr>
+        </thead>
+        <tbody id="processingBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div id="resultMsg" class="msg" style="margin-top:12px"></div>
+
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAdmin();
+renderSidebar('withdrawals', 'admin');
+
+let rows = [];
+
+async function loadData() {
+  try {
+    rows = await apiRequest('/admin/withdrawals/processing');
+    document.getElementById('tilePending').textContent = rows.length;
+    renderTable();
+  } catch (err) {
+    document.getElementById('processingBody').innerHTML = `<tr><td colspan="7" style="color:var(--warning)">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('processingBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:24px">No withdrawals in Processing state — nothing to action.</td></tr>';
+    updateBulkBar();
+    return;
+  }
+  tbody.innerHTML = rows.map(w => {
+    const addr = w.network === 'BEP20' ? (w.withdrawal_address_bep20 || w.account_details || '-')
+               : w.network === 'TRC20' ? (w.withdrawal_address_trc20 || w.account_details || '-')
+               : (w.account_details || '-');
+    return `<tr id="row-${w.id}">
+      <td class="select-col"><input type="checkbox" class="row-check" data-id="${w.id}" data-net="${w.net_amount || 0}" onchange="onRowCheck()" /></td>
+      <td>
+        <strong>${escapeHtml(w.user_code || '-')}</strong><br>
+        <span style="font-size:12px;color:var(--text-dim)">${escapeHtml(w.user_name)}</span><br>
+        <span style="font-size:11px;color:var(--muted)">${escapeHtml(w.user_email)}</span>
+      </td>
+      <td><strong>${usdt(w.amount)}</strong></td>
+      <td style="color:var(--success);font-weight:700">${usdt(w.net_amount || 0)}</td>
+      <td><span class="badge processing">${escapeHtml(w.network || w.method || '-')}</span></td>
+      <td class="addr-cell" title="${escapeHtml(addr)}">${escapeHtml(addr)}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${new Date(w.updated_at || w.created_at).toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+  updateBulkBar();
+}
+
+function getCheckedIds() {
+  return [...document.querySelectorAll('.row-check:checked')].map(el => Number(el.dataset.id));
+}
+
+function onRowCheck() {
+  const checks = document.querySelectorAll('.row-check');
+  const allChecked = [...checks].every(c => c.checked);
+  document.getElementById('masterCheck').checked = allChecked;
+  document.querySelectorAll('.row-check').forEach(el => {
+    document.getElementById(`row-${el.dataset.id}`)?.classList.toggle('selected', el.checked);
+  });
+  updateBulkBar();
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.row-check').forEach(el => {
+    el.checked = checked;
+    document.getElementById(`row-${el.dataset.id}`)?.classList.toggle('selected', checked);
+  });
+  updateBulkBar();
+}
+
+function selectAll()   { toggleAll(true);  document.getElementById('masterCheck').checked = true; }
+function deselectAll() { toggleAll(false); document.getElementById('masterCheck').checked = false; }
+
+function updateBulkBar() {
+  const checked = [...document.querySelectorAll('.row-check:checked')];
+  const count = checked.length;
+  const totalNet = checked.reduce((s, el) => s + parseFloat(el.dataset.net || 0), 0);
+  document.getElementById('bulkCount').textContent = `${count} selected`;
+  document.getElementById('tileSelectedCount').textContent = count;
+  document.getElementById('tileSelectedAmt').textContent = `${totalNet.toFixed(2)} USDT`;
+  document.getElementById('btnMarkProcessed').disabled = count === 0;
+}
+
+async function markProcessed() {
+  const ids = getCheckedIds();
+  if (!ids.length) return;
+  if (!confirm(`Mark ${ids.length} withdrawal(s) as Processed? This cannot be undone.`)) return;
+
+  const btn = document.getElementById('btnMarkProcessed');
+  const msg = document.getElementById('resultMsg');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  msg.textContent = '';
+  msg.className = 'msg';
+
+  try {
+    const res = await apiRequest('/admin/withdrawals/bulk-processed', 'PUT', { ids });
+    msg.className = 'msg success';
+    msg.textContent = res.message;
+    toast(res.message);
+    await loadData();
+  } catch (err) {
+    msg.className = 'msg error';
+    msg.textContent = err.message;
+  } finally {
+    btn.textContent = '✓ Mark Selected as Processed';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

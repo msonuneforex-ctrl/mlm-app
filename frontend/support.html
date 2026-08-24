@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Support - Bee AI Verse</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <h1>Support</h1>
+      <p>Raise a ticket and track it by its token number.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>New Ticket</h3>
+        <form id="newTicketForm">
+          <label>Ticket Type</label>
+          <select id="ticket_type" required style="margin-bottom:14px">
+            <option value="" disabled selected>Select the type of issue…</option>
+            <option value="access_issue">🔴 Account Blocked / Access Issue</option>
+            <option value="withdrawal_problem">🟠 Withdrawal Problem</option>
+            <option value="deposit_issue">🟡 Deposit Issue</option>
+            <option value="kyc_verification">🔵 KYC / Verification</option>
+            <option value="email_profile">🟣 Email / Profile Change</option>
+            <option value="level_income">🟢 Level Income Query</option>
+            <option value="general_query">⚪ General Query</option>
+          </select>
+
+          <label>Subject</label>
+          <input type="text" id="subject" placeholder="Briefly describe the issue" required />
+
+          <label>Message</label>
+          <textarea id="message" placeholder="Give us the details..." required></textarea>
+
+          <button type="submit" class="btn-primary" style="margin-top:16px">Submit Ticket</button>
+        </form>
+        <div id="newMsg" class="msg"></div>
+      </div>
+
+      <div class="panel">
+        <h3>My Tickets</h3>
+        <table>
+          <thead><tr><th>Token</th><th>Type</th><th>Subject</th><th>Status</th><th>Updated</th><th></th></tr></thead>
+          <tbody id="ticketsBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" id="threadPanel" style="display:none">
+      <h3 id="threadTitle">Ticket</h3>
+      <div id="ticketThread" class="ticket-thread"></div>
+      <form id="replyForm">
+        <label>Reply</label>
+        <textarea id="replyMessage" placeholder="Type your reply..." required></textarea>
+        <button type="submit" class="btn-primary" style="margin-top:12px">Send Reply</button>
+      </form>
+      <div id="replyMsg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar('support', 'user');
+
+let openTicketId = null;
+
+const TYPE_LABELS = {
+  access_issue:       { label: 'Access Issue',      dot: '🔴' },
+  withdrawal_problem: { label: 'Withdrawal',        dot: '🟠' },
+  deposit_issue:      { label: 'Deposit',           dot: '🟡' },
+  kyc_verification:   { label: 'KYC',              dot: '🔵' },
+  email_profile:      { label: 'Profile Change',    dot: '🟣' },
+  level_income:       { label: 'Level Income',      dot: '🟢' },
+  general_query:      { label: 'General',           dot: '⚪' },
+};
+
+async function loadTickets() {
+  try {
+    const rows = await apiRequest('/user/support');
+    const tbody = document.getElementById('ticketsBody');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No tickets yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(t => {
+      const typ = TYPE_LABELS[t.ticket_type] || TYPE_LABELS.general_query;
+      return `<tr>
+        <td><strong>${escapeHtml(t.ticket_no)}</strong></td>
+        <td style="white-space:nowrap">${typ.dot} ${typ.label}</td>
+        <td>${escapeHtml(t.subject)}</td>
+        <td><span class="badge ${t.status}">${escapeHtml(t.status.replace('_',' '))}</span></td>
+        <td>${new Date(t.updated_at || t.created_at).toLocaleString()}</td>
+        <td><button class="btn-small btn-primary" onclick="openTicket(${t.id})">View</button></td>
+      </tr>`;
+    }).join('');
+    replayMotion('#ticketsBody');
+  } catch (err) {
+    document.getElementById('ticketsBody').innerHTML = '<tr><td colspan="6">Unable to load tickets</td></tr>';
+  }
+}
+
+async function openTicket(id) {
+  openTicketId = id;
+  const data = await apiRequest(`/user/support/${id}`);
+  document.getElementById('threadPanel').style.display = 'block';
+  document.getElementById('threadTitle').textContent = `${data.ticket.ticket_no} — ${data.ticket.subject}`;
+  document.getElementById('ticketThread').innerHTML = data.messages.map(m => `
+    <div class="ticket-msg from-${m.sender_role}">
+      <div class="meta">${m.sender_role === 'admin' ? 'Support Team' : 'You'} · ${new Date(m.created_at).toLocaleString()}</div>
+      ${escapeHtml(m.message)}
+    </div>
+  `).join('');
+  document.getElementById('threadPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const replyForm = document.getElementById('replyForm');
+  replyForm.style.display = data.ticket.status === 'closed' ? 'none' : 'block';
+}
+
+document.getElementById('newTicketForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('newMsg');
+  msgEl.textContent = '';
+  try {
+    const res = await apiRequest('/user/support', 'POST', {
+      ticket_type: document.getElementById('ticket_type').value,
+      subject: document.getElementById('subject').value,
+      message: document.getElementById('message').value
+    });
+    toast(`Ticket ${res.ticketNo} submitted`);
+    e.target.reset();
+    await loadTickets();
+    openTicket(res.id);
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.classList.add('error');
+  }
+});
+
+document.getElementById('replyForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!openTicketId) return;
+  const msgEl = document.getElementById('replyMsg');
+  msgEl.textContent = '';
+  try {
+    await apiRequest(`/user/support/${openTicketId}/reply`, 'POST', {
+      message: document.getElementById('replyMessage').value
+    });
+    document.getElementById('replyMessage').value = '';
+    await openTicket(openTicketId);
+    await loadTickets();
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.classList.add('error');
+  }
+});
+
+loadTickets();
+</script>
+</body>
+</html>

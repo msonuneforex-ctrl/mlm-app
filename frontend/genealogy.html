@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Genealogy - Bee AI Verse</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="css/style.css" />
+
+  <style>
+    /* =========================================================
+       GENEALOGY PAGE
+    ========================================================= */
+
+    .genealogy-page .panel {
+      overflow: visible;
+    }
+
+    .tree-breadcrumb {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 20px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .tree-breadcrumb a {
+      color: var(--ice);
+      text-decoration: none;
+      opacity: 0.85;
+    }
+
+    .tree-breadcrumb a:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+
+    .tree-breadcrumb .sep {
+      color: var(--muted);
+    }
+
+
+    /* =========================================================
+       VIEWING / ADD USER
+    ========================================================= */
+
+    .genealogy-top-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .genealogy-viewing-label {
+      margin-bottom: 4px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .genealogy-viewing-code {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--ice);
+      letter-spacing: 0.4px;
+    }
+
+    .genealogy-add-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 20px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+
+    /* =========================================================
+       TREE SCROLL
+    ========================================================= */
+
+    .gen-scroll {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      box-sizing: border-box;
+      padding: 75px 20px 70px;
+    }
+
+    .gen-tree {
+      width: 100%;
+      min-width: 1120px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .gen-tree-inner {
+      position: relative;
+      width: 1080px;
+      min-width: 1080px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+
+    /* =========================================================
+       NODE
+    ========================================================= */
+
+    .gen-node {
+      position: relative;
+      display: inline-flex;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .gen-root-wrap {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      z-index: 5;
+    }
+
+
+    /* =========================================================
+       CARD
+    ========================================================= */
+
+    .gen-card {
+      position: relative;
+      display: block;
+      width: 220px;
+      min-height: 150px;
+      padding: 13px 14px 0;
+      box-sizing: border-box;
+
+      color: var(--ice);
+      text-decoration: none;
+
+      border: 1px solid rgba(99, 164, 220, 0.42);
+      border-radius: 17px;
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(18, 35, 51, 0.98),
+          rgba(10, 23, 35, 0.98)
+        );
+
+      box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.18);
+
+      transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .gen-card:hover {
+      transform: translateY(-4px);
+
+      border-color: rgba(99, 204, 255, 0.85);
+
+      box-shadow:
+        0 15px 38px rgba(0, 0, 0, 0.32),
+        0 0 24px rgba(48, 177, 255, 0.12);
+    }
+
+
+    /* =========================================================
+       ROOT CARD
+    ========================================================= */
+
+    .gen-root-node .gen-card,
+    .gen-card.is-root {
+      border-color: rgba(89, 185, 255, 0.75);
+
+      box-shadow:
+        0 0 0 1px rgba(70, 161, 225, 0.08),
+        0 14px 38px rgba(0, 0, 0, 0.25),
+        0 0 30px rgba(52, 157, 225, 0.1);
+    }
+
+    .gen-root-tag {
+      position: absolute;
+      top: -31px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+
+      padding: 5px 11px;
+      border-radius: 999px;
+
+      background: #79bce8;
+      color: #112334;
+
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+    }
+
+
+    /* =========================================================
+       CARD TOP
+    ========================================================= */
+
+    .gen-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }
+
+    .gen-avatar,
+    .gen-plus,
+    .gen-expand {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gen-avatar {
+      width: 32px;
+      height: 32px;
+
+      border: 1px solid rgba(96, 184, 244, 0.45);
+      border-radius: 50%;
+
+      color: #72c8f7;
+
+      background:
+        radial-gradient(
+          circle,
+          rgba(63, 148, 211, 0.22),
+          rgba(20, 47, 68, 0.18)
+        );
+
+      box-shadow:
+        inset 0 0 12px rgba(81, 174, 235, 0.12);
+    }
+
+    .gen-avatar svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .gen-expand {
+      width: 31px;
+      height: 31px;
+
+      border: 1px solid rgba(80, 174, 227, 0.28);
+      border-radius: 50%;
+
+      color: #70d0ff;
+
+      background: rgba(25, 56, 75, 0.38);
+    }
+
+    .gen-expand svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .gen-card:hover .gen-expand {
+      background: rgba(45, 125, 167, 0.42);
+    }
+
+
+    /* =========================================================
+       CARD TEXT
+    ========================================================= */
+
+    .gen-code {
+      margin-bottom: 3px;
+      color: #8bcff2;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .gen-name {
+      min-height: 20px;
+      color: #d4dce5;
+      font-size: 14px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gen-status,
+    .gen-empty-text {
+      margin-top: 3px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+
+    .gen-status.active {
+      color: #73e6b0;
+    }
+
+    .gen-status.inactive {
+      color: #c9a99b;
+    }
+
+    .gen-empty-text {
+      color: #88b8cc;
+    }
+
+
+    /* =========================================================
+       CARD FOOTER
+    ========================================================= */
+
+    .gen-divider {
+      height: 1px;
+      margin-top: 8px;
+      background: rgba(108, 162, 198, 0.2);
+    }
+
+    .gen-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 1px 0;
+    }
+
+    .gen-footer span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .gen-footer small {
+      color: #a8b7c4;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .gen-footer b {
+      color: #dce7ee;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+
+    /* =========================================================
+       EMPTY SLOT
+    ========================================================= */
+
+    .gen-card.empty {
+      border-style: dashed;
+      border-color: rgba(93, 159, 195, 0.45);
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(14, 31, 42, 0.72),
+          rgba(11, 25, 35, 0.72)
+        );
+    }
+
+    .gen-card.empty:hover {
+      border-color: rgba(85, 196, 232, 0.85);
+
+      box-shadow:
+        0 0 25px rgba(60, 188, 232, 0.12);
+    }
+
+    .gen-card.empty .gen-code {
+      color: #e5b557;
+    }
+
+    .gen-plus {
+      width: 32px;
+      height: 32px;
+
+      border: 1px dashed rgba(119, 179, 205, 0.48);
+      border-radius: 50%;
+
+      color: #8cc9e6;
+      font-size: 20px;
+      font-weight: 400;
+    }
+
+
+    /* =========================================================
+       CONNECTOR SYSTEM
+
+       MASTER TREE WIDTH = 1080px
+
+       Every generation uses the same mathematical grid.
+       This keeps vertical and horizontal lines aligned.
+    ========================================================= */
+
+
+    /* ROOT TO LEVEL 1 */
+
+    .gen-root-connector {
+      position: relative;
+      width: 1px;
+      height: 52px;
+      margin: 0 auto;
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(85, 178, 230, 0.85),
+          rgba(85, 178, 230, 0.45)
+        );
+    }
+
+
+    /* =========================================================
+       LEVEL 1
+    ========================================================= */
+
+    .gen-level-one {
+      position: relative;
+
+      width: 1080px;
+
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+
+      gap: 0;
+      margin: 0 auto;
+    }
+
+
+    /*
+      Parent centers are exactly:
+      LEFT  = 25%
+      RIGHT = 75%
+    */
+
+    .gen-level-one::before {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      left: 25%;
+      right: 25%;
+
+      height: 1px;
+
+      background:
+        linear-gradient(
+          90deg,
+          rgba(73, 161, 210, 0.35),
+          rgba(73, 161, 210, 0.8),
+          rgba(73, 161, 210, 0.35)
+        );
+    }
+
+
+    /*
+      Each parent takes exactly 2 columns.
+    */
+
+    .gen-level-one > .gen-col {
+      position: relative;
+
+      grid-column: span 2;
+
+      display: flex;
+      justify-content: center;
+    }
+
+
+    /*
+      Vertical connector from horizontal line
+      down to each level-1 card.
+    */
+
+    .gen-level-one > .gen-col::before {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      left: 50%;
+
+      width: 1px;
+      height: 38px;
+
+      transform: translateX(-50%);
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(85, 178, 230, 0.8),
+          rgba(85, 178, 230, 0.38)
+        );
+    }
+
+
+    .gen-level-one > .gen-col > .gen-node {
+      margin-top: 38px;
+    }
+
+
+    /* =========================================================
+       LEVEL 2 GROUP
+
+       Same exact 1080px width.
+       Four columns align perfectly with level 1.
+    ========================================================= */
+
+    .gen-group {
+      position: relative;
+
+      width: 1080px;
+
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+
+      gap: 0;
+
+      margin: 0 auto;
+    }
+
+
+    /*
+      Each branch takes 2 columns:
+
+      Branch 1 = columns 1 + 2
+      Branch 2 = columns 3 + 4
+    */
+
+    .gen-group > .gen-branch {
+      position: relative;
+
+      grid-column: span 2;
+
+      min-height: 230px;
+    }
+
+
+    /* Parent center -> lower branch */
+
+    .gen-branch-stem {
+      width: 1px;
+      height: 48px;
+
+      margin: 0 auto;
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(85, 178, 230, 0.72),
+          rgba(85, 178, 230, 0.38)
+        );
+    }
+
+
+    /* =========================================================
+       GRANDCHILDREN
+    ========================================================= */
+
+    .gen-grandchildren {
+      position: relative;
+
+      width: 100%;
+
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+
+      gap: 0;
+    }
+
+
+    /*
+      Inside each 2-column branch:
+      child centers are 25% and 75%.
+    */
+
+    .gen-grandchildren::before {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      left: 25%;
+      right: 25%;
+
+      height: 1px;
+
+      background:
+        linear-gradient(
+          90deg,
+          rgba(73, 161, 210, 0.3),
+          rgba(73, 161, 210, 0.75),
+          rgba(73, 161, 210, 0.3)
+        );
+    }
+
+
+    .gen-grandchildren > .gen-col {
+      position: relative;
+
+      display: flex;
+      justify-content: center;
+    }
+
+
+    .gen-grandchildren > .gen-col::before {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      left: 50%;
+
+      width: 1px;
+      height: 36px;
+
+      transform: translateX(-50%);
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(85, 178, 230, 0.68),
+          rgba(85, 178, 230, 0.3)
+        );
+    }
+
+
+    .gen-grandchildren > .gen-col > .gen-node {
+      margin-top: 36px;
+    }
+
+
+    /* =========================================================
+       EMPTY BRANCH
+    ========================================================= */
+
+    .gen-branch:empty {
+      min-height: 0;
+    }
+
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================= */
+
+    @media (max-width: 700px) {
+
+      .gen-scroll {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .gen-tree {
+        min-width: 1120px;
+      }
+
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app-layout">
+
+    <div id="sidebar-root"></div>
+
+
+    <div class="main-content genealogy-page">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <h1>Genealogy</h1>
+
+        <p>
+          View your binary structure. Click any member to view that member
+          as the root, or click an empty slot to add a user.
+        </p>
+      </div>
+
+
+      <!-- VIEWING / ADD USER -->
+      <div class="panel genealogy-top-panel">
+
+        <div>
+
+          <div class="genealogy-viewing-label">
+            Viewing
+          </div>
+
+          <div
+            class="genealogy-viewing-code"
+            id="myCode"
+          >
+            —
+          </div>
+
+        </div>
+
+
+        <a
+          class="btn-primary genealogy-add-btn"
+          id="addUserBtn"
+          href="#"
+        >
+          + Add User
+        </a>
+
+      </div>
+
+
+      <!-- TREE -->
+      <div class="panel">
+
+        <div
+          class="tree-breadcrumb"
+          id="breadcrumb"
+        ></div>
+
+
+        <div class="gen-scroll">
+
+          <div
+            class="gen-tree"
+            id="treeView"
+          >
+            Loading tree...
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <script src="js/api.js"></script>
+  <script src="js/sidebar.js"></script>
+
+
+  <script>
+
+    /* =========================================================
+       AUTH / SIDEBAR
+    ========================================================= */
+
+    requireAuth();
+    renderSidebar('genealogy', 'user');
+
+
+    /* =========================================================
+       LOGGED-IN USER
+    ========================================================= */
+
+    let myOwnId = null;
+    let myOwnCode = null;
+
+
+    /* =========================================================
+       HELPERS
+    ========================================================= */
+
+    function addUserLink(sponsorCode, side) {
+
+      const params = new URLSearchParams({
+        sponsor: sponsorCode || '',
+        side: side || ''
+      });
+
+      return `register.html?${params.toString()}`;
+    }
+
+
+    function rootUrl(id) {
+
+      return id
+        ? `genealogy.html?root=${encodeURIComponent(id)}`
+        : 'genealogy.html';
+    }
+
+
+    function getRootIdFromUrl() {
+
+      return new URLSearchParams(
+        window.location.search
+      ).get('root');
+    }
+
+
+    /* =========================================================
+       COUNT HELPERS
+
+       If the API returns left_count/right_count as 0 while a
+       visible child exists, show at least the visible count.
+    ========================================================= */
+
+    function countBranch(node) {
+
+      if (!node) {
+        return 0;
+      }
+
+      return (
+        1 +
+        countBranch(node.left) +
+        countBranch(node.right)
+      );
+    }
+
+
+    function getBranchCount(node, side) {
+
+      if (!node) {
+        return 0;
+      }
+
+
+      const child =
+        side === 'L'
+          ? node.left
+          : node.right;
+
+
+      const calculatedCount =
+        countBranch(child);
+
+
+      const apiValue =
+        side === 'L'
+          ? node.left_count
+          : node.right_count;
+
+
+      const apiCount =
+        Number(apiValue);
+
+
+      /*
+        If the visible data contains members but API count
+        is zero/incorrect, use the visible branch count.
+      */
+
+      if (
+        calculatedCount > 0 &&
+        (
+          !Number.isFinite(apiCount) ||
+          apiCount < calculatedCount
+        )
+      ) {
+        return calculatedCount;
+      }
+
+
+      if (
+        Number.isFinite(apiCount) &&
+        apiCount >= 0
+      ) {
+        return apiCount;
+      }
+
+
+      return calculatedCount;
+    }
+
+
+    function getLeftCount(node) {
+      return getBranchCount(node, 'L');
+    }
+
+
+    function getRightCount(node) {
+      return getBranchCount(node, 'R');
+    }
+
+
+    /* =========================================================
+       ICONS
+    ========================================================= */
+
+    const ICON_UNIT = `
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle
+          cx="12"
+          cy="8"
+          r="3.4"
+          stroke="currentColor"
+          stroke-width="1.8"
+        />
+
+        <path
+          d="M5 20c0-3.6 3.13-6 7-6s7 2.4 7 6"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        />
+      </svg>
+    `;
+
+
+    const ICON_CHEVRON = `
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M9 6l6 6-6 6"
+          stroke="currentColor"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    `;
+
+
+    /* =========================================================
+       MEMBER CARD
+    ========================================================= */
+
+    const nodeHtml = (node, isRoot = false) => {
+
+      if (!node) {
+        return '';
+      }
+
+
+      const status =
+        String(
+          node.status || 'inactive'
+        ).toLowerCase();
+
+
+      const leftCount =
+        getLeftCount(node);
+
+
+      const rightCount =
+        getRightCount(node);
+
+
+      return `
+        <div
+          class="
+            gen-node
+            ${isRoot ? 'gen-root-node' : ''}
+          "
+        >
+
+          ${
+            isRoot
+              ? `
+                <span class="gen-root-tag">
+                  ${escapeHtml(node.user_code) || 'ROOT'}
+                </span>
+              `
+              : ''
+          }
+
+
+          <a
+            class="
+              gen-card
+              ${isRoot ? 'is-root' : ''}
+            "
+            href="${rootUrl(node.id)}"
+            title="View ${escapeHtml(node.name || node.user_code || 'member')}'s downline"
+          >
+
+            <div class="gen-card-top">
+
+              <span class="gen-avatar">
+                ${ICON_UNIT}
+              </span>
+
+
+              <span class="gen-expand">
+                ${ICON_CHEVRON}
+              </span>
+
+            </div>
+
+
+            <div class="gen-code">
+              ${escapeHtml(node.user_code) || '—'}
+            </div>
+
+
+            <div class="gen-name">
+              ${escapeHtml(node.name) || 'Unnamed User'}
+            </div>
+
+
+            <div class="gen-status ${status}">
+              ${status}
+            </div>
+
+
+            <div class="gen-divider"></div>
+
+
+            <div class="gen-footer">
+
+              <span>
+                <small>L</small>
+                <b>${leftCount}</b>
+              </span>
+
+
+              <span>
+                <small>R</small>
+                <b>${rightCount}</b>
+              </span>
+
+            </div>
+
+          </a>
+
+        </div>
+      `;
+    };
+
+
+    /* =========================================================
+       EMPTY SLOT
+    ========================================================= */
+
+    const emptySlot = (
+      sponsorCode,
+      side,
+      label
+    ) => {
+
+      return `
+        <div class="gen-node">
+
+          <a
+            class="gen-card empty"
+            href="${addUserLink(sponsorCode, side)}"
+            title="Add ${label} member"
+          >
+
+            <div class="gen-card-top">
+
+              <span class="gen-plus">
+                +
+              </span>
+
+
+              <span class="gen-expand">
+                ${ICON_CHEVRON}
+              </span>
+
+            </div>
+
+
+            <div class="gen-code">
+              Open
+            </div>
+
+
+            <div class="gen-empty-text">
+              EMPTY SLOT
+            </div>
+
+
+            <div class="gen-divider"></div>
+
+
+            <div class="gen-footer">
+
+              <span>
+                <small>L</small>
+                <b>—</b>
+              </span>
+
+
+              <span>
+                <small>R</small>
+                <b>—</b>
+              </span>
+
+            </div>
+
+          </a>
+
+        </div>
+      `;
+    };
+
+
+    /* =========================================================
+       CHILD CELL
+    ========================================================= */
+
+    const childCell = (
+      node,
+      sponsorCode,
+      side,
+      label
+    ) => {
+
+      return node
+        ? nodeHtml(node, false)
+        : emptySlot(
+            sponsorCode,
+            side,
+            label
+          );
+    };
+
+
+    /* =========================================================
+       GRANDCHILD BRANCH
+    ========================================================= */
+
+    const branch = (node) => {
+
+      /*
+       * Keep the empty branch in the grid.
+       * This preserves alignment of all other branches.
+       */
+
+      if (!node) {
+        return `
+          <div class="gen-branch"></div>
+        `;
+      }
+
+
+      return `
+        <div class="gen-branch">
+
+          <!-- Vertical line directly below parent -->
+          <div class="gen-branch-stem"></div>
+
+
+          <!-- Parent's left/right children -->
+          <div class="gen-grandchildren">
+
+
+            <div class="gen-col">
+
+              ${childCell(
+                node.left,
+                node.user_code,
+                'L',
+                'Left'
+              )}
+
+            </div>
+
+
+            <div class="gen-col">
+
+              ${childCell(
+                node.right,
+                node.user_code,
+                'R',
+                'Right'
+              )}
+
+            </div>
+
+
+          </div>
+
+        </div>
+      `;
+    };
+
+
+    /* =========================================================
+       LOAD TREE
+    ========================================================= */
+
+    async function loadTree(rootId) {
+
+      const path =
+        rootId
+          ? `/user/tree/${rootId}`
+          : '/user/tree';
+
+
+      try {
+
+        const data =
+          await apiRequest(path);
+
+
+        /*
+         * Store logged-in user's original identity once.
+         */
+        if (
+          myOwnId === null &&
+          data.me
+        ) {
+
+          myOwnId =
+            data.me.id;
+
+          myOwnCode =
+            data.me.user_code;
+        }
+
+
+        /*
+         * data.me ALWAYS represents the currently viewed root.
+         *
+         * Initial:
+         *   Your user = root
+         *
+         * Click BAV04:
+         *   BAV04 = root
+         */
+        const currentRoot =
+          data.me;
+
+
+        if (!currentRoot) {
+          throw new Error(
+            'Tree root was not returned by the server'
+          );
+        }
+
+
+        /* VIEWING HEADER */
+
+        document.getElementById('myCode').textContent =
+          currentRoot.user_code || '—';
+
+
+        /* ADD USER */
+
+        document.getElementById('addUserBtn').href =
+          addUserLink(
+            currentRoot.user_code,
+            ''
+          );
+
+
+        /* =====================================================
+           BREADCRUMB
+        ===================================================== */
+
+        const breadcrumb =
+          document.getElementById('breadcrumb');
+
+
+        const crumbs = [];
+
+
+        if (
+          currentRoot.id !== myOwnId
+        ) {
+
+          crumbs.push(`
+            <a href="${rootUrl(null)}">
+              ${myOwnCode || 'Home'}
+            </a>
+          `);
+
+
+          if (
+            data.parent &&
+            data.parent.id
+          ) {
+
+            crumbs.push(
+              `<span class="sep">/</span>`
+            );
+
+
+            crumbs.push(`
+              <a href="${rootUrl(data.parent.id)}">
+                ${data.parent.user_code || 'Parent'}
+              </a>
+            `);
+          }
+
+
+          crumbs.push(
+            `<span class="sep">/</span>`
+          );
+
+
+          crumbs.push(`
+            <span style="color:var(--ice)">
+              ${currentRoot.user_code || 'Current'}
+            </span>
+          `);
+        }
+
+
+        breadcrumb.innerHTML =
+          crumbs.join('');
+
+
+        /* =====================================================
+           RENDER TREE
+
+           The current root is ALWAYS the top card.
+
+           Clicking BAV04:
+           genealogy.html?root=<BAV04 ID>
+
+           API:
+           data.me = BAV04
+
+           Therefore:
+           BAV04 is rendered as the root.
+        ===================================================== */
+
+        document.getElementById('treeView').innerHTML = `
+
+          <div class="gen-tree-inner">
+
+
+            <!-- ROOT -->
+
+            <div class="gen-root-wrap">
+
+              ${nodeHtml(
+                currentRoot,
+                true
+              )}
+
+            </div>
+
+
+            <!-- ROOT -> LEVEL 1 -->
+
+            <div class="gen-root-connector"></div>
+
+
+            <!-- LEVEL 1 -->
+
+            <div class="gen-level-one">
+
+
+              <!-- LEFT -->
+
+              <div class="gen-col">
+
+                ${childCell(
+                  data.left,
+                  currentRoot.user_code,
+                  'L',
+                  'Left'
+                )}
+
+              </div>
+
+
+              <!-- RIGHT -->
+
+              <div class="gen-col">
+
+                ${childCell(
+                  data.right,
+                  currentRoot.user_code,
+                  'R',
+                  'Right'
+                )}
+
+              </div>
+
+
+            </div>
+
+
+            <!-- LEVEL 2 -->
+
+            <div class="gen-group">
+
+              ${branch(data.left)}
+
+              ${branch(data.right)}
+
+            </div>
+
+
+          </div>
+        `;
+
+
+        /*
+         * Run existing animation if available.
+         */
+
+        if (
+          typeof replayMotion === 'function'
+        ) {
+          replayMotion('#treeView');
+        }
+
+      } catch (err) {
+
+        console.error(
+          'Unable to load genealogy tree:',
+          err
+        );
+
+
+        document.getElementById('treeView').innerHTML = `
+          <div
+            style="
+              padding:40px;
+              text-align:center;
+              color:var(--muted)
+            "
+          >
+            ${err.message || 'Unable to load tree'}
+          </div>
+        `;
+      }
+    }
+
+
+    /* =========================================================
+       INITIAL LOAD
+    ========================================================= */
+
+    loadTree(
+      getRootIdFromUrl()
+    );
+
+  </script>
+
+</body>
+</html>

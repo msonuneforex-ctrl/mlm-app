@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Login - MLM Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="auth-page-wrap">
+  <div class="auth-shell">
+    <div class="auth-eyebrow"><span class="pulse-dot"></span> AI-Powered Network Access</div>
+
+    <div class="auth-bot">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="12" cy="13.5" rx="5.5" ry="6.5" stroke="#ffc93c" stroke-width="1.5"/>
+        <path d="M6.8 11h10.4M6.5 14h11M7.2 17h9.6" stroke="#ffc93c" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="12" cy="5.2" r="2.4" stroke="#ffc93c" stroke-width="1.5"/>
+        <path d="M10.3 3.2 9 1.6M13.7 3.2 15 1.6" stroke="#ffc93c" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M5.5 10c-2.4-1.4-3.6-.2-3.6 1.6 0 1.8 2 2.4 3.6.9" stroke="#ffc93c" stroke-width="1.2" opacity="0.7"/>
+        <path d="M18.5 10c2.4-1.4 3.6-.2 3.6 1.6 0 1.8-2 2.4-3.6.9" stroke="#ffc93c" stroke-width="1.2" opacity="0.7"/>
+      </svg>
+    </div>
+
+    <div class="auth-border-glow">
+      <div class="auth-box">
+        <h2>Welcome Back</h2>
+        <p class="auth-subtitle">Sign in to access your Bee AI Verse dashboard</p>
+        <form id="loginForm">
+          <label>User ID</label>
+          <input type="text" id="loginId" required placeholder="e.g. BAVXX" autocomplete="username" style="text-transform:uppercase" />
+          <div style="font-size:12px;color:var(--text-dim);margin-top:-8px"><br> Your Bee AI Verse ID — or use your registered email instead.</div>
+
+          <label>Password</label>
+          <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password" />
+
+          <button type="submit" class="btn-primary">Login</button>
+        </form>
+
+        <form id="mfaForm" style="display:none">
+          <label>Google Authenticator Code</label>
+          <input type="text" id="mfaCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" autocomplete="one-time-code" />
+          <button type="submit" class="btn-primary">Verify</button>
+        </form>
+
+        <div id="msg" class="msg"></div>
+        <div class="switch-link" id="registerLink">Don't have an account? <a href="register.html">Register</a></div>
+      </div>
+    </div>
+
+    <div class="auth-footnote">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z" stroke="currentColor" stroke-width="1.6"/></svg>
+       
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = '';
+  msg.className = 'msg';
+
+  try {
+    const data = await apiRequest('/auth/login', 'POST', {
+      loginId: document.getElementById('loginId').value.trim(),
+      password: document.getElementById('password').value
+    });
+
+    if (data.force2faSetup) {
+      window.location.href = `setup-2fa.html?setupToken=${encodeURIComponent(data.setupToken)}`;
+      return;
+    }
+
+    if (data.mfaRequired) {
+      window.__mfaToken = data.mfaToken;
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerLink').style.display = 'none';
+      document.getElementById('mfaForm').style.display = 'block';
+      msg.textContent = 'Enter the 6-digit code from Google Authenticator.';
+      msg.className = 'msg';
+      document.getElementById('mfaCode').focus();
+      return;
+    }
+
+    saveSession(data.token, data.user);
+    window.location.href = data.user.role === 'admin' ? 'beeadmin-dashboard.html' : 'dashboard.html';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+  }
+});
+
+document.getElementById('mfaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = ''; msg.className = 'msg';
+  try {
+    const data = await apiRequest('/auth/login/verify-2fa', 'POST', {
+      mfaToken: window.__mfaToken,
+      code: document.getElementById('mfaCode').value.trim()
+    });
+    saveSession(data.token, data.user);
+    window.location.href = data.user.role === 'admin' ? 'beeadmin-dashboard.html' : 'dashboard.html';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+  }
+});
+</script>
+</body>
+</html>

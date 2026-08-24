@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Set Up 2FA - Bee AI Verse</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="auth-page-wrap">
+  <div class="auth-shell">
+    <div class="auth-eyebrow"><span class="pulse-dot"></span> Secure Your Account</div>
+
+    <div class="auth-border-glow">
+      <div class="auth-box">
+        <h2>Set Up Google Authenticator</h2>
+        <p class="auth-subtitle">
+          Scan the QR code below with the Google Authenticator app, then enter the
+          6-digit code it shows to activate 2FA. This is required before you can log in.
+        </p>
+
+        <div id="loadingMsg" style="text-align:center;color:var(--text-dim);padding:20px 0">Generating your QR code...</div>
+
+        <div id="qrWrap" style="display:none;text-align:center;margin:14px 0">
+          <img id="qrImg" alt="2FA QR code" style="width:200px;height:200px;border-radius:10px;background:#fff;padding:8px" />
+          <p style="font-size:12px;color:var(--text-dim);margin-top:10px">
+            Can't scan? Enter this key manually in the app:
+          </p>
+          <p style="font-size:13px;font-weight:700;color:var(--ice);word-break:break-all" id="secretText"></p>
+        </div>
+
+        <form id="confirmForm" style="display:none">
+          <label>6-Digit Code</label>
+          <input type="text" id="code" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" autocomplete="one-time-code" />
+          <button type="submit" class="btn-primary">Verify & Enable 2FA</button>
+        </form>
+        <div id="msg" class="msg"></div>
+
+        <div class="switch-link" id="loginLink" style="display:none">
+          <a href="login.html">Continue to Login →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const setupToken = params.get('setupToken');
+
+// This page is only reachable via a setupToken (from register or forced at login).
+// Direct access without a token goes back to login.
+if (!setupToken) {
+  window.location.href = 'login.html';
+}
+
+async function init() {
+  try {
+    const data = await apiRequest('/auth/totp/setup-init', 'POST', { setupToken });
+    document.getElementById('qrImg').src = data.qrCode;
+    document.getElementById('secretText').textContent = data.secret;
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('qrWrap').style.display = 'block';
+    document.getElementById('confirmForm').style.display = 'block';
+  } catch (err) {
+    document.getElementById('loadingMsg').textContent = err.message;
+  }
+}
+init();
+
+document.getElementById('confirmForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = ''; msg.className = 'msg';
+  try {
+    const res = await apiRequest('/auth/totp/setup-confirm', 'POST', {
+      setupToken,
+      code: document.getElementById('code').value.trim()
+    });
+    msg.textContent = res.message;
+    msg.className = 'msg success';
+    document.getElementById('confirmForm').style.display = 'none';
+    // Always go to login after setup — user must now sign in with their 2FA code.
+    setTimeout(() => window.location.href = 'login.html', 1500);
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+  }
+});
+</script>
+</body>
+</html>
